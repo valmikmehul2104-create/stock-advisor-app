@@ -97,12 +97,12 @@ td,th{padding:7px 4px;border-bottom:1px solid var(--bd);text-align:right}td:firs
 <div class="card">
 <h2>Breakout scanner</h2>
 <div class="grid">
-<div><label>Kahan se dhoondhein</label><select id="src"><option value="nse">NSE ke bade stocks (lagbhag 100)</option><option value="wl">Meri active watchlist</option></select></div>
+<div><label>Kahan se dhoondhein</label><select id="src"><option value="all">Sab: Large + Mid + Small cap</option><option value="large">Sirf Large cap</option><option value="mid">Sirf Midcap</option><option value="small">Sirf Smallcap</option><option value="wl">Meri active watchlist</option></select></div>
 <div><label>Kitne stocks check karein</label><select id="cnt"><option>10</option><option selected>20</option><option>30</option></select></div>
 </div>
 <button class="btn" id="scan" style="margin-top:12px">Scan shuru karo</button>
 <div id="sst" class="note" style="margin-top:8px"></div>
-<div class="note" style="margin-top:6px">Aaj ka daily data (Yahoo Finance) check hota hai. Isme koi roz ki limit nahi hai.</div>
+<div class="note" style="margin-top:6px">Aaj ka daily data (Yahoo Finance) check hota hai, koi roz ki limit nahi. Small cap me liquidity kam hoti hai, isliye jo stock roz ₹1 Cr se kam ka trade hota hai wo skip kiya jata hai. "Sab" scan me pehli baar 1-2 minute lag sakte hain.</div>
 </div>
 <div id="sres"></div>
 <div class="card" id="btc">
@@ -335,7 +335,7 @@ async function alertTick(){
 async function scan(){
   if(scanning)return;
   scanning=true;scanOut=[];$("sres").innerHTML="";$("scan").disabled=true;$("scan").textContent="Scan chal raha hai...";
-  sst("Scan ho raha hai (pehli baar 30-60 second lag sakte hain)...");
+  sst("Scan ho raha hai (pehli baar 1-2 minute lag sakte hain)...");
   try{
     const src=$("src").value;let url="/api/scan?n="+(+$("cnt").value)+"&src="+src;
     if(src==="wl")url+="&symbols="+encodeURIComponent(lists[act].items.map(i=>i.id).slice(0,50).join(","));
@@ -346,7 +346,7 @@ async function scan(){
 }
 function scanDraw(){
   scanOut.sort((a,b)=>b.T.score-a.T.score);
-  $("sres").innerHTML=scanOut.map((r,i)=>{const T=r.T;return`<div class="card"><div class="top"><div><div class="nmx" style="font-size:16px">${esc(r.name)}</div><div class="note">${fx(r.price)} <span class="${cl(r.chg)}">${pc(r.chg)}</span></div></div><div style="text-align:right"><b class="${T.k}">${esc(T.label)}</b><div class="note">Score ${T.score}/100</div></div></div><div class="note" style="margin:6px 0">${esc(T.sum)}</div><div class="row"><span>Entry / Stop-loss</span><b>${fx(T.entry,0)} / <span class="r">${fx(T.sl,0)}</span></b></div><div class="row"><span>Target 1 / Target 2</span><b class="g">${fx(T.t1,0)} / ${fx(T.t2,0)}</b></div><div class="chips" style="margin-top:8px"><button class="chip" data-act="sopen" data-i="${i}">Poora analysis</button><button class="chip" data-act="salert" data-i="${i}">🔔 Alert</button><button class="chip" data-act="sstar2" data-i="${i}">☆ Watchlist</button></div></div>`;}).join("");
+  $("sres").innerHTML=scanOut.map((r,i)=>{const T=r.T;return`<div class="card"><div class="top"><div><div class="nmx" style="font-size:16px">${esc(r.name)}</div><div class="note">${fx(r.price)} <span class="${cl(r.chg)}">${pc(r.chg)}</span>${r.cap?" | "+esc(r.cap)+" cap":""}${r.liq?" | roz ~₹"+r.liq+" Cr":""}</div></div><div style="text-align:right"><b class="${T.k}">${esc(T.label)}</b><div class="note">Score ${T.score}/100</div></div></div><div class="note" style="margin:6px 0">${esc(T.sum)}</div><div class="row"><span>Entry / Stop-loss</span><b>${fx(T.entry,0)} / <span class="r">${fx(T.sl,0)}</span></b></div><div class="row"><span>Target 1 / Target 2</span><b class="g">${fx(T.t1,0)} / ${fx(T.t2,0)}</b></div><div class="chips" style="margin-top:8px"><button class="chip" data-act="sopen" data-i="${i}">Poora analysis</button><button class="chip" data-act="salert" data-i="${i}">🔔 Alert</button><button class="chip" data-act="sstar2" data-i="${i}">☆ Watchlist</button></div></div>`;}).join("");
 }
 
 /* ---------- backtest (server par, pichhle 10 saal) ---------- */

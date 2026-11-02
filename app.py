@@ -10,7 +10,7 @@ from flask import Flask, jsonify, request, send_from_directory
 
 from backtest import run as bt_run, stats as bt_stats
 from technical import analyse
-from universe import SECTORS, UNIVERSE
+from universe import CAP, SECTORS, UNIVERSE
 
 app = Flask(__name__)
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -255,7 +255,9 @@ def api_peers():
     sector = SECTORS.get(sym) or get_info(sym).get("sector")
     if not sector:
         return reply([])
-    peers = [s for s in UNIVERSE if SECTORS[s] == sector and s != sym][:8]
+    same = [s for s in UNIVERSE if SECTORS[s] == sector and s != sym]
+    mine = CAP.get(sym)  # pehle usi cap size ke stocks (mid ke saath mid), phir baaki
+    peers = ([s for s in same if CAP.get(s) == mine] + [s for s in same if CAP.get(s) != mine])[:8]
     try:
         qs = quotes(peers)
     except Exception:
@@ -272,8 +274,10 @@ def api_scan():
         if not syms:
             return err("Watchlist khali hai.")
     else:
-        syms = UNIVERSE
-    key = "scan:" + (",".join(syms) if src == "wl" else "nse")
+        syms = [s for s in UNIVERSE if src in ("all", "nse") or CAP.get(s) == src]
+        if not syms:
+            return err("Ye option sahi nahi hai.")
+    key = "scan:" + (",".join(syms) if src == "wl" else src)
     try:
         fr = cached(key, 300, lambda: frames(syms, "6mo"))
     except Exception:
@@ -287,8 +291,11 @@ def api_scan():
         c = df["Close"].dropna()
         price = float(c.iloc[-1])
         prev = float(c.iloc[-2]) if len(c) > 1 else price
+        liq = float(df["Volume"].fillna(0).tail(20).mean()) * price / 1e7  # roz ka average turnover (crore)
+        if src != "wl" and liq < 1.0:  # bahut kam liquidity: SL par bahut slippage hota hai, skip
+            continue
         if src == "wl" or T["state"] == "brk" or (T["state"] == "near" and T["score"] >= 45):
-            res.append({"id": s, "name": s.rsplit(".", 1)[0], "price": price,
+            res.append({"id": s, "name": s.rsplit(".", 1)[0], "cap": CAP.get(s, "").capitalize(), "price": price, "liq": round(liq, 1),
                         "chg": (price / prev - 1) * 100 if prev else 0.0,
                         "T": {k: T[k] for k in ("score", "label", "k", "sum", "state", "base", "entry", "sl", "t1", "t2")}})
     res.sort(key=lambda r: -r["T"]["score"])
