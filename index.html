@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stock Advisor</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#2563eb">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#14171c;--mut:#667085;--bd:#e3e6eb;--ac:#2563eb;--g:#0f9d58;--r:#d93025;--y:#b7791f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101319;--card:#181c24;--tx:#eef1f5;--mut:#98a2b3;--bd:#2a303b;--ac:#6ea0ff;--g:#34c27a;--r:#ff6b60;--y:#f0b44c}}
+:root[data-theme="dark"]{--bg:#101319;--card:#181c24;--tx:#eef1f5;--mut:#98a2b3;--bd:#2a303b;--ac:#6ea0ff;--g:#34c27a;--r:#ff6b60;--y:#f0b44c}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+main{max-width:560px;margin:0 auto;padding:14px}
+h1{font-size:22px;margin:2px 0}.sub{color:var(--mut);font-size:13px;margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+h2{font-size:13px;color:var(--mut);margin:0 0 10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
+input{width:100%;padding:11px;font-size:16px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx)}
+button{font:inherit;color:inherit;cursor:pointer}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tabs button{flex:1;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--card);font-weight:600}
+.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.sbox{position:relative}
+#sug{position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--card);border:1px solid var(--bd);border-radius:10px;margin-top:4px;overflow:hidden}
+#sug:empty{display:none}
+.si,.wr{display:flex;align-items:center;border-bottom:1px solid var(--bd)}
+.si:last-child,.wr:last-child{border:0}
+.si .nm,.wr .nm{flex:1;text-align:left;background:none;border:0;padding:11px 12px;font-size:15px}
+.star,.x{width:44px;height:44px;background:none;border:0;font-size:22px;color:var(--y)}
+.x{color:var(--mut);font-size:18px}
+.note{font-size:12px;color:var(--mut)}
+.top{display:flex;justify-content:space-between;align-items:center}
+.nmx{font-size:18px;font-weight:700}.px{font-size:28px;font-weight:700}.px span{font-size:15px}
+.vd{font-size:26px;font-weight:700;margin:0 0 4px}
+.row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--bd);font-size:14px}
+.row:last-child{border:0}.row b{text-align:right}
+.g{color:var(--g)}.r{color:var(--r)}.y{color:var(--y)}
+ul{margin:6px 0 0;padding-left:18px;font-size:14px}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;font-size:13px}
+.facts span{display:block;color:var(--mut);font-size:11px}
+.rets{display:flex;gap:6px;overflow-x:auto;margin:10px 0}
+.rets div{flex:0 0 auto;border:1px solid var(--bd);border-radius:8px;padding:6px 9px;font-size:12px;text-align:center}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 12px;font-size:13px;background:var(--bg);border:1px solid var(--bd);border-radius:18px}
+.btn{width:100%;padding:13px;font-size:15px;font-weight:600;border:0;border-radius:12px;background:var(--ac);color:#fff}
+details{font-size:13px;margin-top:8px}summary{cursor:pointer;color:var(--ac)}
+svg text{font-size:9.5px;fill:var(--tx)}
+select{width:100%;padding:11px;font-size:15px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx)}
+#toast{position:fixed;left:8px;right:8px;top:calc(8px + env(safe-area-inset-top,0px));z-index:30;display:flex;flex-direction:column;gap:6px}
+.tt{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-left:4px solid var(--y);box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:14px}
+.tt.g{border-left-color:var(--g)}.tt.r{border-left-color:var(--r)}
+table{width:100%;font-size:13px;border-collapse:collapse}
+td,th{padding:7px 4px;border-bottom:1px solid var(--bd);text-align:right}td:first-child,th:first-child{text-align:left}
+.lst{display:flex;gap:8px;overflow-x:auto;padding:12px 12px 4px}
+.chip.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.lh{padding:8px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}
+.mini{padding:7px 11px;font-size:12px;border:1px solid var(--bd);border-radius:8px;background:var(--bg)}
+.sr{display:flex;justify-content:space-between;width:100%;padding:13px 4px;border:0;border-bottom:1px solid var(--bd);background:none;font-size:15px;text-align:left}
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:1px solid var(--bd);border-radius:16px 16px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px));max-height:70vh;overflow:auto;box-shadow:0 -8px 30px rgba(0,0,0,.2)}
+.live{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:12px}
+</style>
+</head>
+<body>
+<main>
+<h1>Stock Advisor</h1>
+<div class="sub">Search karo, chart dekho, breakout scan karo</div>
+<nav class="tabs"><button id="t1" class="on">Analyse</button><button id="t2">Watchlist <span id="wc"></span></button><button id="t3">Breakout</button></nav>
+
+<section id="v1">
+<div class="sbox"><input id="q" placeholder="Company ka naam, jaise Reliance ya TCS" autocomplete="off"><div id="sug"></div></div>
+<div id="st" class="note" style="margin:8px 0"></div>
+<div id="res" hidden>
+<div class="card" id="head"></div>
+<div class="card"><h2>Aapki position (optional)</h2><div class="grid"><div><label>Kharid price (₹)</label><input id="buy" type="number" inputmode="decimal"></div><div><label>Quantity</label><input id="qty" type="number" inputmode="numeric"></div></div></div>
+<div class="card" id="ver"></div>
+<div class="card"><h2>Chart (aakhri 6 mahine)</h2><div id="chart"></div></div>
+<div class="card" id="tech"></div>
+<div class="card" id="lev"></div>
+<div class="card" id="why"></div>
+<div class="card" id="info"></div>
+<div class="card" id="rat" hidden></div>
+<div class="card" id="peers" hidden></div>
+<div class="note">Ye rule-based analysis hai, financial advice nahi. Paise lagane se pehle apna research karein ya advisor se poochein.</div>
+</div>
+</section>
+
+<section id="v2" hidden>
+<div class="card" id="wl" style="padding:0"></div>
+<button class="btn" id="wr">Prices refresh karo</button>
+</section>
+<section id="v3" hidden>
+<div class="card">
+<h2>Breakout scanner</h2>
+<div class="grid">
+<div><label>Kahan se dhoondhein</label><select id="src"><option value="nse">NSE ke bade stocks (lagbhag 100)</option><option value="wl">Meri active watchlist</option></select></div>
+<div><label>Kitne stocks check karein</label><select id="cnt"><option>10</option><option selected>20</option><option>30</option></select></div>
+</div>
+<button class="btn" id="scan" style="margin-top:12px">Scan shuru karo</button>
+<div id="sst" class="note" style="margin-top:8px"></div>
+<div class="note" style="margin-top:6px">Aaj ka daily data (Yahoo Finance) check hota hai. Isme koi roz ki limit nahi hai.</div>
+</div>
+<div id="sres"></div>
+<div class="card" id="btc">
+<h2>Strategy ka accuracy test (purane data par)</h2>
+<div class="grid">
+<div><label>Kin stocks par</label><select id="btsrc"><option value="cur">Jo stock abhi khula hai</option><option value="wl">Meri active watchlist (pehle 10)</option></select></div>
+<div><label>Trade kitne din tak</label><select id="bthold"><option>10</option><option selected>20</option><option>30</option></select></div>
+<div><label>Minimum score</label><input id="btsc" type="number" value="70"></div>
+<div><label>Minimum volume (x)</label><input id="btvol" type="number" step="0.1" value="1.5"></div>
+</div>
+<button class="btn" id="btgo" style="margin-top:12px">Backtest chalao</button>
+<div id="btst" class="note" style="margin-top:8px"></div>
+<div id="btres"></div>
+<div class="note" style="margin-top:8px">Pichhle 10 saal ka daily data use hota hai. Brokerage, slippage aur tax nahi joda gaya. Purana result future ki guarantee nahi hai.</div>
+</div>
+<div class="card" id="alr" hidden></div>
+</section>
+<div id="sheet" hidden></div>
+<div id="toast" hidden></div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fx=(v,d=2)=>v==null||isNaN(v)?"—":"₹"+Number(v).toLocaleString("en-IN",{maximumFractionDigits:d});
+const pc=v=>v==null||isNaN(v)?"—":(v>0?"+":"")+v.toFixed(2)+"%";
+const cl=v=>v>0?"g":v<0?"r":"";
+let mcp=true,lists=[{id:"l1",name:"Meri watchlist",items:[]}],act=0,alerts=[],S=null,tok=0,sugList=[],px={};
+const MAXW=50;
+const inAny=id=>lists.some(l=>l.items.some(i=>i.id===id));
+const findAny=id=>{for(const l of lists){const i=l.items.find(x=>x.id===id);if(i)return i;}return null;};
+
+function textOf(r){if(!r)return"";if(typeof r.payload==="string")return r.payload;const b=(r.content||[]).find(x=>x.type==="text");return b?b.text:"";}
+function results(r){let p=r&&r.payload;if(typeof p==="string"){try{p=JSON.parse(p)}catch(e){p=null}}if(!p){try{p=JSON.parse(textOf(r))}catch(e){p=null}}if(Array.isArray(p))p=p[0];return(p&&p.results)||[];}
+function num(s){if(s==null)return null;const m=String(s).replace(/,/g,"").match(/-?\d+(?:\.\d+)?/);return m?parseFloat(m[0]):null;}
+function money(s){const m=s&&String(s).match(/(-?[\d,]+(?:\.\d+)?)\s*([KMBT])?/);if(!m)return null;let v=parseFloat(m[1].replace(/,/g,""));const k={K:1e3,M:1e6,B:1e9,T:1e12}[m[2]];return k?v*k:v;}
+function field(t,l){const m=t.match(new RegExp("\\*\\*"+l+":\\*\\*[ \\t]*([^\\n]+)"));return m?m[1].trim():null;}
+function grid(t){const L=t.split("\n").filter(l=>l.trim().startsWith("|"));if(L.length<3)return[];const cut=l=>l.trim().replace(/^\||\|$/g,"").split("|").map(c=>c.trim());const H=cut(L[0]);return L.slice(2).map(l=>{const c=cut(l),o={};H.forEach((h,i)=>o[h]=c[i]);return o;});}
+function gv(g,k){const key=Object.keys(g).find(h=>h.includes(k));return key?g[key]:null;}
+async function api(path){
+  let r;
+  try{r=await fetch(path);}catch(e){throw new Error("Server se connect nahi ho paya. Internet check karo.");}
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error||"Server me dikkat aayi, thodi der baad try karo.");
+  return j;
+}
+const errT=e=>e&&e.message?e.message:"Data nahi aaya.";
+const setSt=t=>{$("st").textContent=t||"";};
+
+/* ---------- start, watchlist storage (is phone ke browser me) ---------- */
+async function init(){loadWL();drawWL();}
+function loadWL(){
+  try{
+    const j=JSON.parse(localStorage.getItem("wls")||"null");
+    if(j&&j.lists&&j.lists.length){lists=j.lists;alerts=j.alerts||[];act=Math.min(j.act||0,lists.length-1);}
+  }catch(e){}
+}
+function saveWL(){try{localStorage.setItem("wls",JSON.stringify({lists,act,alerts}));}catch(e){}}
+function toggle(){}
+
+/* ---------- search suggestions ---------- */
+let st;
+$("q").oninput=()=>{clearTimeout(st);const q=$("q").value.trim();if(q.length<2){sugList=[];drawSug();return;}st=setTimeout(()=>suggest(q),400);};
+async function suggest(q){
+  try{
+    const r=await api("/api/search?q="+encodeURIComponent(q));
+    if($("q").value.trim()!==q)return;
+    sugList=r;drawSug();setSt(r.length?"":"Koi stock nahi mila. Spelling badal ke dekho.");
+  }catch(e){setSt(errT(e));}
+}
+function drawSug(){
+  $("sug").innerHTML=sugList.map(x=>`<div class="si"><button class="nm" data-act="pick" data-id="${esc(x.id)}" data-name="${esc(x.name)}">${esc(x.name)}</button><button class="star" data-act="sstar" data-id="${esc(x.id)}" data-name="${esc(x.name)}" aria-label="Watchlist">${inAny(x.id)?"★":"☆"}</button></div>`).join("");
+}
+
+/* ---------- load one stock ---------- */
+function rsi14(c){if(c.length<16)return null;let g=0,l=0;for(let i=1;i<=14;i++){const d=c[i]-c[i-1];d>0?g+=d:l-=d;}g/=14;l/=14;for(let i=15;i<c.length;i++){const d=c[i]-c[i-1];g=(g*13+Math.max(d,0))/14;l=(l*13+Math.max(-d,0))/14;}return l===0?100:100-100/(1+g/l);}
+
+async function analyse(x){
+  const my=++tok;sugList=[];drawSug();$("q").value=x.name||x.id||"";$("res").hidden=false;
+  S={id:x.id,name:x.name||x.id,ticker:x.id,bars:[],ret:{},rat:null,peers:null};
+  const w=findAny(x.id);$("buy").value=w&&w.buy?w.buy:"";$("qty").value=w&&w.qty?w.qty:"";
+  setSt("Data la raha hu...");drawAll();
+  try{
+    const d=await api("/api/stock?symbol="+encodeURIComponent(x.id));if(my!==tok)return;
+    Object.assign(S,{name:d.name||S.name,ticker:d.symbol,price:d.price,chg:d.chg,asOf:d.asOf,hi:d.hi,lo:d.lo,dma:d.dma,dma200:d.dma200,
+      sent:d.sentiment,tgt:d.target,mcap:d.mcap,sector:d.sector,industry:d.industry,exch:d.exch,ceo:d.ceo,emp:d.emp,web:d.web,
+      desc:d.desc,ret:d.ret||{},rat:d.rat&&d.rat.length?d.rat:null,bars:d.bars||[]});
+    S.upd=null;setSt("");indic();applyLive();drawAll();loadPeers(my);
+  }catch(e){if(my!==tok)return;setSt(errT(e));S.barErr=errT(e);drawAll();}
+}
+function indic(){const cs=S.bars.map(z=>z.c);S.rsi=rsi14(cs);if(cs.length>=50)S.dma=cs.slice(-50).reduce((a,v)=>a+v,0)/50;S.tech=techAnalyse(S.bars);}
+const istNow=()=>new Date(Date.now()+19800000);
+function marketOpen(){const t=istNow(),d=t.getUTCDay(),m=t.getUTCHours()*60+t.getUTCMinutes();return d>0&&d<6&&m>=555&&m<=930;}
+function liveBars(b,price){
+  if(!b.length||!price||!marketOpen())return false;
+  const L=b[b.length-1],td=istNow().toISOString().slice(0,10);
+  if(L.d<td&&!L.live)b.push({d:td,h:price,l:price,c:price,live:1});
+  else{L.c=price;L.h=Math.max(L.h,price);L.l=Math.min(L.l,price);}
+  return true;
+}
+function applyLive(){if(liveBars(S.bars,S.price))indic();}
+async function liveTick(){
+  if(!S||!S.id)return;const my=tok,id=S.id;
+  try{
+    const r=await api("/api/quote?symbols="+encodeURIComponent(id)),q=r[id];if(!q||my!==tok)return;
+    S.price=q.price;S.asOf=q.asOf;S.chg=q.chg;
+    S.upd=new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+    applyLive();drawAll();
+  }catch(e){setSt(errT(e));}
+}
+async function loadPeers(my){
+  try{
+    const r=await api("/api/peers?symbol="+encodeURIComponent(S.id));if(my!==tok)return;
+    S.peers=r.map(p=>({rp_entity_id:p.id,company_name:p.name,price:p.price}));drawAll();
+  }catch(e){}
+}
+
+/* ---------- deep technical analysis ---------- */
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+function ema(a,n){const k=2/(n+1);let e=a[0];return a.map((v,i)=>i?(e=v*k+e*(1-k)):e);}
+function pivots(b,w){const hi=[],lo=[];for(let i=w;i<b.length-w;i++){let h=1,l=1;for(let j=i-w;j<=i+w;j++){if(b[j].h>b[i].h)h=0;if(b[j].l<b[i].l)l=0;}if(h)hi.push(i);if(l)lo.push(i);}return{hi,lo};}
+function techAnalyse(b){
+  const n=b.length;if(n<40)return null;
+  const C=b.map(z=>z.c),H=b.map(z=>z.h),L=b.map(z=>z.l),V=b.map(z=>z.v||0),i0=n-1,cur=C[i0];
+  const mx=(a,f,t)=>Math.max(...a.slice(Math.max(0,f),t)),mn=(a,f,t)=>Math.min(...a.slice(Math.max(0,f),t));
+  const base=mx(H,i0-25,i0-5),lvl50=n>=52?mx(H,i0-50,i0):null,low20=mn(L,i0-20,i0);
+  const above=cur>base,near=!above&&cur>=base*.98,breakdown=cur<mn(C,i0-20,i0);
+  let run=0;while(run<=i0&&C[i0-run]>base)run++;
+  const fresh=above&&run<=5,ext=(cur-base)/base*100;
+  let vi=i0;while(vi>20&&(b[vi].live||!V[vi]))vi--;
+  const av20=avg(V.slice(vi-20,vi).filter(v=>v>0)),volX=av20?V[vi]/av20:null;
+  const bs=V.slice(Math.max(0,i0-run+1),vi+1),bvx=fresh&&av20&&bs.length?Math.max(...bs)/av20:null,vx=bvx||volX;
+  let up=0,dn=0;for(let i=Math.max(1,vi-19);i<=vi;i++){if(C[i]>=C[i-1])up+=V[i];else dn+=V[i];}
+  const udr=dn?up/dn:null;let o=0;const obv=C.map((c,i)=>i?(o+=c>C[i-1]?V[i]:c<C[i-1]?-V[i]:0):0),obvUp=obv[vi]>obv[Math.max(0,vi-20)];
+  const bw=[];for(let i=19;i<n;i++){const w=C.slice(i-19,i+1),m=avg(w),sd=Math.sqrt(avg(w.map(x=>(x-m)**2)));bw.push(m?4*sd/m:0);}
+  const q25=[...bw].sort((a,c)=>a-c)[Math.floor(bw.length*.25)],sqz=Math.min(...bw.slice(-10))<=q25;
+  const tr=[];for(let i=n-14;i<n;i++)tr.push(Math.max(H[i]-L[i],Math.abs(H[i]-C[i-1]),Math.abs(L[i]-C[i-1])));const atr=avg(tr);
+  const e20=ema(C,20)[i0],e50=ema(C,50)[i0],m12=ema(C,12),m26=ema(C,26),mac=m12.map((v,i)=>v-m26[i]),msg=ema(mac,9),hist=mac[i0]-msg[i0],histP=mac[i0-1]-msg[i0-1];
+  const P=pivots(b,3),ph=P.hi.filter(i=>i>=n-60).slice(-2),pl=P.lo.filter(i=>i>=n-60).slice(-2),pat=[];
+  const nr=(x,y,t)=>Math.abs(x-y)/y<=t;
+  if(ph.length==2&&pl.length==2){
+    const ft=nr(H[ph[0]],H[ph[1]],.015),fb=nr(L[pl[0]],L[pl[1]],.015),rl=L[pl[1]]>L[pl[0]]*1.01,fh=H[ph[1]]<H[ph[0]]*.99;
+    if(ft&&rl)pat.push({t:"Ascending triangle (upar breakout bullish hota hai)",k:"g"});
+    else if(fb&&fh)pat.push({t:"Descending triangle (neeche toot-ne ka khatra)",k:"r"});
+    else if(fh&&rl)pat.push({t:"Symmetrical triangle (jald badi move aa sakti hai)",k:"y"});
+    if(H[ph[1]]>H[ph[0]]*1.005&&L[pl[1]]>L[pl[0]]*1.005)pat.push({t:"Higher highs aur higher lows (uptrend)",k:"g"});
+    if(H[ph[1]]<H[ph[0]]*.995&&L[pl[1]]<L[pl[0]]*.995)pat.push({t:"Lower highs aur lower lows (downtrend)",k:"r"});
+  }
+  if(pl.length==2&&pl[1]-pl[0]>=8&&nr(L[pl[0]],L[pl[1]],.03)){const nk=mx(H,pl[0],pl[1]+1);if(pl[1]>=n-25&&nk>L[pl[1]]*1.06)pat.push(cur>=nk*.98?{t:"Double bottom: neckline "+Math.round(nk)+" ke paas ya upar (bullish)",k:"g"}:{t:"Double bottom ban raha hai, neckline "+Math.round(nk),k:"y"});}
+  if(ph.length==2&&ph[1]-ph[0]>=8&&nr(H[ph[0]],H[ph[1]],.03)){const vl=mn(L,ph[0],ph[1]+1);if(ph[1]>=n-25&&vl<H[ph[1]]*.94)pat.push(cur<=vl*1.02?{t:"Double top: neckline "+Math.round(vl)+" toot raha hai (bearish)",k:"r"}:{t:"Double top ka khatra, support "+Math.round(vl),k:"y"});}
+  const rng=(mx(H,i0-14,n)-mn(L,i0-14,n))/cur;
+  if(rng<=.08)pat.push({t:"Consolidation box: 15 din ki range sirf "+(rng*100).toFixed(1)+"%"+(volX&&av20&&avg(V.slice(vi-4,vi+1))/av20<.8?", volume sukh raha hai":""),k:"y"});
+  for(let k=5;k<=12;k++){const pe=i0-k,ps=mn(C,pe-10,pe),pole=C[pe]/ps-1;if(pole>=.10){const fl=mn(L,pe,n),fh=mx(H,pe,n),ret=(C[pe]-fl)/(C[pe]-ps);if((fh-fl)/cur<=.08&&ret<.5){pat.push({t:"Bull flag: "+(pole*100).toFixed(0)+"% tezi ke baad tight consolidation",k:"g"});break;}}}
+  const resUp=P.hi.map(i=>H[i]).filter(v=>v>cur*1.002).sort((a,c)=>a-c)[0]||null,supDn=P.lo.map(i=>L[i]).filter(v=>v<cur*.998).sort((a,c)=>c-a)[0]||null;
+  let sc=30;const sig=[],add=(p,t,k)=>{sc+=p;sig.push({t,k});};
+  if(breakdown)add(-40,"Price 20 din ke closing low ke neeche gaya (breakdown)","r");
+  else if(above){
+    if(fresh)add(35,"Breakout: price "+Math.round(base)+" ke upar close hua"+(run<=1?" (taza)":" ("+run+" din pehle)"),"g");
+    else add(8,"Price "+Math.round(base)+" ke upar hai par breakout purana ("+run+" din)","y");
+    if(lvl50&&cur>lvl50)add(8,"50 din ka high bhi cross kiya","g");
+    if(ext>8)add(-12,"Breakout se "+ext.toFixed(1)+"% upar: late entry, risky","r");
+  }else if(near)add(15,"Breakout level "+Math.round(base)+" ke paas ("+((base-cur)/base*100).toFixed(1)+"% neeche)","y");
+  else sig.push({t:"Breakout level "+Math.round(base)+" se door hai",k:"y"});
+  if(vx!=null){
+    if(vx>=2)add(20,"Volume "+vx.toFixed(1)+"x (bahut zyada, strong confirmation)","g");
+    else if(vx>=1.5)add(14,"Volume "+vx.toFixed(1)+"x (achha confirmation)","g");
+    else if(vx>=1.2)add(6,"Volume "+vx.toFixed(1)+"x (thoda zyada)","g");
+    else if(above&&fresh)add(-8,"Volume sirf "+vx.toFixed(1)+"x: kamzor breakout (fake hone ka chance)","r");
+    else sig.push({t:"Volume "+vx.toFixed(1)+"x (normal)",k:"y"});
+  }
+  if(udr!=null){if(udr>=1.3)add(5,"Up-days par volume zyada (accumulation)","g");else if(udr<.77)add(-5,"Down-days par volume zyada (distribution)","r");}
+  if(obvUp)add(4,"OBV badh raha hai (khareedari ka dabav)","g");
+  if(cur>e20&&e20>e50)add(10,"Trend majboot: price > 20 EMA > 50 EMA","g");else if(cur>e50)add(4,"Price 50 EMA ke upar","y");else add(-6,"Price 50 EMA ke neeche (kamzor trend)","r");
+  if(sqz)add(8,"Bollinger squeeze (volatility dabi hui, move ke baad tez hoti hai)","g");
+  if(hist>0)add(4,"MACD positive"+(hist>histP?" aur badh raha hai":""),"g");else sig.push({t:"MACD negative","k":"r"});
+  let pg=0;pat.forEach(x=>{if(x.k==="g"&&pg<12){sc+=6;pg+=6;}else if(x.k==="r")sc-=8;});
+  const r=rsi14(C);if(r!=null){if(r>78)add(-6,"RSI "+r.toFixed(0)+": bahut overheated","r");else if(r>=55)add(4,"RSI "+r.toFixed(0)+": momentum achha","g");else if(r<40)add(-4,"RSI "+r.toFixed(0)+": kamzor","r");}
+  sc=Math.max(0,Math.min(100,Math.round(sc)));
+  const state=breakdown?"bd":above&&fresh?"brk":near?"near":"none";
+  const lab=state==="bd"?{l:"Breakdown (kamzor)",k:"r"}:state==="brk"?(sc>=75?{l:"Strong breakout",k:"g"}:sc>=60?{l:"Achha breakout",k:"g"}:{l:"Kamzor breakout",k:"y"}):state==="near"&&sc>=45?{l:"Breakout ke kareeb",k:"y"}:{l:"Koi breakout nahi",k:"y"};
+  let sl=Math.max(cur-2*atr,(supDn||low20)*.995);if(!(sl<cur*.99))sl=cur-1.5*atr;
+  const risk=cur-sl,t1=cur+2*risk,t2=Math.max(base+(base-low20),cur+3*risk);
+  const sum=(state==="brk"?"Breakout "+Math.round(base)+" ke upar":state==="near"?"Level "+Math.round(base)+" ke paas":"Level "+Math.round(base))+" | Volume "+(vx?vx.toFixed(1)+"x":"-")+(pat[0]?" | "+pat[0].t.split(" (")[0].split(":")[0]:"");
+  return{score:sc,label:lab.l,k:lab.k,state,breakdown,above,fresh,near,base,ext,volX:vx,pat,sig,atr,e20,e50,sl,t1,t2,entry:cur,rr2:(t2-cur)/risk,resUp,supDn,sum};
+}
+function techC(){
+  const T=S.tech;
+  if(!T){$("tech").innerHTML=`<h2>Technical analysis</h2><div class="note">${S.barErr?"Chart data nahi mila, isliye technical analysis nahi ho paya.":S.bars.length?"Analysis ke liye kam se kam 40 din ka data chahiye.":"Load ho raha hai..."}</div>`;return;}
+  const has=alerts.some(a=>a.id===S.id),ic=k=>k==="g"?"✔":k==="r"?"✖":"•";
+  let h=`<h2>Technical analysis</h2><div class="top"><div class="vd ${T.k}" style="font-size:20px">${esc(T.label)}</div><div class="px" style="font-size:22px">${T.score}<span class="note">/100</span></div></div>`
+   +T.sig.map(x=>`<div class="row"><span>${esc(x.t)}</span><b class="${x.k}">${ic(x.k)}</b></div>`).join("")
+   +`<h2 style="margin-top:14px">Chart patterns</h2>`+(T.pat.length?T.pat.map(x=>`<div class="row"><span>${esc(x.t)}</span><b class="${x.k}">${ic(x.k)}</b></div>`).join(""):`<div class="note">Koi clear pattern nahi mila.</div>`)
+   +`<h2 style="margin-top:14px">Breakout trade plan</h2><div class="row"><span>Entry (abhi ka price)</span><b>${fx(T.entry,0)}</b></div><div class="row"><span>Breakout level</span><b>${fx(T.base,0)}</b></div><div class="row"><span>Stop-loss</span><b class="r">${fx(T.sl,0)}</b></div><div class="row"><span>Target 1 (risk:reward 1:2)</span><b class="g">${fx(T.t1,0)}</b></div><div class="row"><span>Target 2 (1:${T.rr2.toFixed(1)})</span><b class="g">${fx(T.t2,0)}</b></div>`
+   +(T.resUp?`<div class="row"><span>Nazdeeki resistance</span><b>${fx(T.resUp,0)}</b></div>`:"")+(T.supDn?`<div class="row"><span>Nazdeeki support</span><b>${fx(T.supDn,0)}</b></div>`:"")
+   +`<div class="row"><span>ATR (roz ka average utaar-chadhav)</span><b>${fx(T.atr,1)} (${(T.atr/T.entry*100).toFixed(1)}%)</b></div>`
+   +`<button class="btn" style="margin-top:12px" data-act="alert">${has?"🔔 Alert laga hai (hatao)":"🔔 Is stock par alert lagao"}</button><div class="note" style="margin-top:6px">Alert tab check hota hai jab ye page khula ho. Koi bhi breakout 100% safe nahi hota, stop-loss zaroor lagao.</div>`;
+  $("tech").innerHTML=h;
+}
+
+/* ---------- alerts ---------- */
+let toasts=[],scanning=false,scanOut=[];
+const sleep=ms=>new Promise(r=>setTimeout(r,ms)),sst=t=>{$("sst").textContent=t||"";};
+function toast(m,k){toasts.push({m,k:k||"g"});drawToast();}
+function drawToast(){const el=$("toast");el.hidden=!toasts.length;el.innerHTML=toasts.map((t,i)=>`<div class="tt ${t.k}"><span>${esc(t.m)}</span><button class="x" data-act="tdel" data-i="${i}" style="width:32px;height:32px">✕</button></div>`).join("");}
+function beep(){try{const c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator();o.connect(c.destination);o.frequency.value=880;o.start();setTimeout(()=>{o.stop();c.close();},350);}catch(e){}}
+function fire(m,k){toast(m,k);try{navigator.vibrate&&navigator.vibrate([250,120,250]);}catch(e){}beep();try{if(window.Notification&&Notification.permission==="granted")new Notification("Stock Advisor",{body:m});}catch(e){}}
+function setAlert(id,name,T,price){
+  if(!T)return;const a={id,name,sl:T.sl,t1:T.t1,f:{}};if(price<T.base)a.brk=T.base;
+  alerts=alerts.filter(x=>x.id!==id);alerts.push(a);saveWL();drawAlr();if(S&&S.tech)techC();
+  try{if(window.Notification&&Notification.permission==="default")Notification.requestPermission();}catch(e){}
+  toast("Alert laga diya: "+name,"y");alertTick();
+}
+function drawAlr(){
+  const el=$("alr");if(!alerts.length){el.hidden=true;return;}el.hidden=false;
+  el.innerHTML=`<h2>Meri alerts (page khula ho tab check hoti hain)</h2>`+alerts.map(a=>`<div class="row"><span>${esc(a.name)}<div class="note">${a.brk?"Breakout "+fx(a.brk,0)+(a.f&&a.f.brk?" ✓":"")+" | ":""}SL ${fx(a.sl,0)}${a.f&&a.f.sl?" ✓":""} | T1 ${fx(a.t1,0)}${a.f&&a.f.t1?" ✓":""}</div></span><button class="x" data-act="adel" data-id="${esc(a.id)}">✕</button></div>`).join("");
+}
+async function alertTick(){
+  if(!alerts.length)return;
+  try{
+    const r=await api("/api/quote?symbols="+encodeURIComponent(alerts.map(a=>a.id).join(",")));let ch=false;
+    alerts.forEach(a=>{const q=r[a.id];if(!q||!q.price)return;const p=q.price;a.f=a.f||{};
+      if(a.brk&&!a.f.brk&&p>=a.brk){a.f.brk=1;ch=true;fire("BREAKOUT: "+a.name+" ne "+fx(a.brk,0)+" cross kiya (abhi "+fx(p,0)+")","g");}
+      if(!a.f.sl&&p<=a.sl){a.f.sl=1;ch=true;fire("STOP-LOSS: "+a.name+" "+fx(a.sl,0)+" ke neeche aa gaya ("+fx(p,0)+")","r");}
+      if(!a.f.t1&&p>=a.t1){a.f.t1=1;ch=true;fire("TARGET: "+a.name+" ne target 1 "+fx(a.t1,0)+" choo liya ("+fx(p,0)+")","g");}});
+    if(ch){saveWL();drawAlr();}
+  }catch(e){}
+}
+
+/* ---------- breakout scanner (server par, Yahoo data) ---------- */
+async function scan(){
+  if(scanning)return;
+  scanning=true;scanOut=[];$("sres").innerHTML="";$("scan").disabled=true;$("scan").textContent="Scan chal raha hai...";
+  sst("Scan ho raha hai (pehli baar 30-60 second lag sakte hain)...");
+  try{
+    const src=$("src").value;let url="/api/scan?n="+(+$("cnt").value)+"&src="+src;
+    if(src==="wl")url+="&symbols="+encodeURIComponent(lists[act].items.map(i=>i.id).slice(0,50).join(","));
+    const r=await api(url);scanOut=r.results;scanDraw();
+    sst(scanOut.length?("Scan poora: "+r.checked+" stocks check hue, "+scanOut.length+" setups mile. Sabse upar sabse achha hai."):"Abhi koi breakout ya breakout ke kareeb wala stock nahi mila.");
+  }catch(e){sst(errT(e));}
+  scanning=false;$("scan").disabled=false;$("scan").textContent="Scan shuru karo";
+}
+function scanDraw(){
+  scanOut.sort((a,b)=>b.T.score-a.T.score);
+  $("sres").innerHTML=scanOut.map((r,i)=>{const T=r.T;return`<div class="card"><div class="top"><div><div class="nmx" style="font-size:16px">${esc(r.name)}</div><div class="note">${fx(r.price)} <span class="${cl(r.chg)}">${pc(r.chg)}</span></div></div><div style="text-align:right"><b class="${T.k}">${esc(T.label)}</b><div class="note">Score ${T.score}/100</div></div></div><div class="note" style="margin:6px 0">${esc(T.sum)}</div><div class="row"><span>Entry / Stop-loss</span><b>${fx(T.entry,0)} / <span class="r">${fx(T.sl,0)}</span></b></div><div class="row"><span>Target 1 / Target 2</span><b class="g">${fx(T.t1,0)} / ${fx(T.t2,0)}</b></div><div class="chips" style="margin-top:8px"><button class="chip" data-act="sopen" data-i="${i}">Poora analysis</button><button class="chip" data-act="salert" data-i="${i}">🔔 Alert</button><button class="chip" data-act="sstar2" data-i="${i}">☆ Watchlist</button></div></div>`;}).join("");
+}
+
+/* ---------- backtest (server par, pichhle 10 saal) ---------- */
+async function runBT(){
+  const btn=$("btgo");btn.disabled=true;$("btres").innerHTML="";
+  const hold=+$("bthold").value,ms=+$("btsc").value||70,mv=+$("btvol").value||1.5;let syms;
+  if($("btsrc").value==="cur"){if(!S||!S.id){$("btst").textContent="Pehle Analyse tab me koi stock kholo.";btn.disabled=false;return;}syms=[S.id];}
+  else{syms=lists[act].items.slice(0,10).map(i=>i.id);if(!syms.length){$("btst").textContent="Active watchlist khali hai.";btn.disabled=false;return;}}
+  $("btst").textContent="History par test chal raha hai (kuch second se 1 minute)...";
+  try{const r=await api("/api/backtest?symbols="+encodeURIComponent(syms.join(","))+"&hold="+hold+"&score="+ms+"&vol="+mv);drawBT(r,hold);$("btst").textContent="Backtest poora hua.";}
+  catch(e){$("btst").textContent=errT(e);}
+  btn.disabled=false;
+}
+function drawBT(r,hold){
+  const s=r.s,b=r.b,rows=r.rows||[],el=$("btres");
+  if(!s){el.innerHTML=`<div class="note" style="margin-top:8px">Is data me ek bhi signal nahi bana. Score ya volume ki sharten kam karke dekho.</div>`;return;}
+  const f=(v,d=1)=>v==null?"-":v.toFixed(d),tr=(a,x,y,c)=>`<tr><td>${a}</td><td class="${c||""}">${x}</td><td>${y}</td></tr>`;
+  const edge=s.R-(b?b.R:0);
+  const v=s.n<30?"Sample chhota ("+s.n+" trades) hai, is result par bharosa mat karo. Zyada stocks jodo.":edge>.15?"Breakout signals random entry se behtar rahe (R me +"+edge.toFixed(2)+").":edge<-.05?"Breakout signals random entry se behtar nahi rahe.":"Breakout signals aur random entry lagbhag barabar rahe, yaani koi pakka edge nahi dikha.";
+  el.innerHTML=`<div style="margin-top:12px"><b>${esc(v)}</b></div><table style="margin-top:8px"><tr><th></th><th>Breakout signal</th><th>Random entry</th></tr>`
+   +tr("Trades",s.n,b?b.n:"-")+tr("Target 1 pehle hit",f(s.win)+"%",b?f(b.win)+"%":"-","g")+tr("Stop-loss pehle hit",f(s.sl)+"%",b?f(b.sl)+"%":"-","r")
+   +tr(hold+" din me profit me",f(s.pos)+"%",b?f(b.pos)+"%":"-")+tr("Average return/trade",f(s.avg,2)+"%",b?f(b.avg,2)+"%":"-",s.avg>0?"g":"r")
+   +tr("Average R (1 = risk ka ek hissa)",f(s.R,2),b?f(b.R,2):"-")+tr("Sabse bada loss",f(s.worst)+"%",b?f(b.worst)+"%":"-","r")+`</table>`
+   +`<h2 style="margin-top:14px">Stock-wise</h2>`+rows.map(x=>`<div class="row"><span>${esc(x.name)}<div class="note">${x.yrs} saal ka data</div></span><b>${x.s?x.s.n+" trades | "+f(x.s.win,0)+"% target | "+f(x.s.avg,1)+"%":"koi signal nahi"}</b></div>`).join("");
+}
+
+/* ---------- analysis ---------- */
+function calc(){
+  if(!S||!S.price)return null;
+  const cur=S.price,buy=num($("buy").value),qty=num($("qty").value),pos=!!(buy&&qty),b=S.bars,why=[];let sc=0;
+  const sup=b.length>=20?Math.min(...b.slice(-20).map(z=>z.l)):(S.lo&&S.hi?S.lo+(S.hi-S.lo)*.15:cur*.95);
+  const res=b.length>=20?Math.max(...b.slice(-60).map(z=>z.h)):(S.hi||cur*1.1);
+  if(S.dma){if(cur>S.dma){sc++;why.push("Price 50 din ke average ke upar hai (trend majboot).");}else{sc--;why.push("Price 50 din ke average ke neeche hai (trend kamzor).");}}
+  if(S.rsi!=null){const r=S.rsi.toFixed(0);if(S.rsi>=70){sc--;why.push("RSI "+r+": overbought, dip aa sakta hai.");}else if(S.rsi<=30){sc++;why.push("RSI "+r+": oversold, bounce ke chance.");}else why.push("RSI "+r+": normal zone me hai.");}
+  if(S.lo&&S.hi&&S.hi>S.lo){const p=(cur-S.lo)/(S.hi-S.lo);if(p<.3){sc++;why.push("Price 52 week range ke neeche hisse me hai (sasta zone).");}else if(p>.85){sc--;why.push("Price 52 week high ke paas hai (mehenga zone).");}else why.push("Price 52 week range ke beech me hai.");}
+  if(S.sent!=null){if(S.sent>=.2){sc++;why.push("News sentiment positive hai ("+S.sent+").");}else if(S.sent<=-.2){sc--;why.push("News sentiment negative hai ("+S.sent+"). News ka asar short-term hota hai.");}else why.push("News sentiment lagbhag neutral hai ("+S.sent+").");}
+  if(S.tgt){const up=(S.tgt-cur)/cur*100;if(up>=15){sc++;why.push("Analyst target "+fx(S.tgt)+" hai, price se "+up.toFixed(0)+"% upar.");}else if(up<=-5){sc--;why.push("Price analyst target "+fx(S.tgt)+" se upar hai.");}}
+  const T=S.tech;
+  if(T){if(T.state==="bd"){sc-=2;why.push("Technical: breakdown ho gaya (20 din ke closing low ke neeche).");}else if(T.state==="brk"&&T.score>=75){sc+=2;why.push("Technical: volume ke saath strong breakout ("+T.score+"/100).");}else if(T.state==="brk"&&T.score>=60){sc+=1;why.push("Technical: achha breakout ("+T.score+"/100).");}}
+  const pct=pos?(cur-buy)/buy*100:null;
+  if(pos&&pct<=-15){sc--;why.push("Aapka loss "+Math.abs(pct).toFixed(1)+"% hai. Stop-loss ka dhyan rakhein.");}
+  if(pos&&pct>=20)why.push("Profit "+pct.toFixed(1)+"% hai. Kuch hissa book karna soch sakte ho.");
+  if(!why.length)why.push("Zyada data nahi mila, isliye signal kamzor hai.");
+  const bz1=sup,bz2=sup+Math.max(res-sup,cur*.03)*.25,sl=Math.min(sup*.97,cur*.95);
+  const t1=res>cur*1.04?Math.min(res,cur+2*(cur-sl)):cur*1.06;
+  const t2=Math.max(S.hi&&S.hi>cur*1.1?Math.min(S.hi,cur*1.25):cur*1.15,t1*1.04);
+  let v,k,sub;
+  if(pos){if(sc>=2){v="HOLD / ADD";k="g";sub="Signals positive hain.";}else if(sc<=-2){v="SELL / REDUCE";k="r";sub="Signals kamzor hain.";}else{v="HOLD";k="y";sub="Abhi wait karna theek, clear signal nahi.";}}
+  else{if(sc>=2){v="BUY";k="g";sub="Signals positive hain.";}else if(sc<=-2){v="AVOID";k="r";sub="Abhi signals kamzor hain, kharidne se bachein.";}else{v="WAIT";k="y";sub="Clear signal nahi, buy zone ka intezaar karo.";}}
+  if(cur<=sl){why.unshift("Price stop-loss ke neeche hai.");}
+  return{cur,buy,qty,pos,pct,sc,v,k,sub,bz1,bz2,sl,t1,t2,why,inZone:cur<=bz2};
+}
+
+/* ---------- drawing ---------- */
+function drawAll(){if(!S)return;const A=calc();head();ver(A);$("chart").innerHTML=chart(A);lev(A);whyC(A);techC();info();ratC();peerC();}
+function head(){
+  const inW=inAny(S.id);
+  $("head").innerHTML=`<div class="top"><div><div class="nmx">${esc(S.name)}</div><div class="note">${esc(S.ticker||"")} ${S.asOf?esc(S.asOf):""}</div></div><button class="star" data-act="star" aria-label="Watchlist">${inW?"★":"☆"}</button></div>`+(S.price?`<div class="px">${fx(S.price)} <span class="${cl(S.chg)}">${pc(S.chg)}</span></div>`:`<div class="note">Price aa raha hai...</div>`)+(S.price?`<div class="live"><b class="${marketOpen()?"g":""}">${marketOpen()?"● Market khula":"Market band"}</b><button class="chip" data-act="refresh">Refresh</button><span class="note">${S.upd?"Update "+esc(S.upd)+". ":""}${marketOpen()?"Har 60 sec me auto-update.":"Market 9:15 se 3:30 (Mon-Fri) khulta hai."}</span></div>`:"");
+}
+function ver(A){
+  $("ver").innerHTML=A?`<div class="vd ${A.k}">${A.v}</div><div class="note">${A.sub}</div>`+(A.pos?`<div class="row" style="margin-top:8px"><span>Aapka P&amp;L</span><b class="${cl(A.pct)}">${(A.cur-A.buy)*A.qty>=0?"+":""}${fx((A.cur-A.buy)*A.qty,0)} (${pc(A.pct)})</b></div>`:""):`<div class="note">Analysis ke liye price chahiye...</div>`;
+}
+function lev(A){
+  if(!A){$("lev").innerHTML="";return;}
+  let h=`<h2>Levels</h2><div class="row"><span>Buy zone</span><b class="g">${fx(A.bz1,0)} se ${fx(A.bz2,0)}</b></div><div class="row"><span>Sell target 1</span><b class="g">${fx(A.t1,0)}</b></div><div class="row"><span>Sell target 2</span><b class="g">${fx(A.t2,0)}</b></div><div class="row"><span>Stop-loss</span><b class="r">${fx(A.sl,0)}</b></div>`;
+  h+=`<div class="note" style="margin-top:6px">${A.inZone?"Price abhi buy zone me hai.":"Price buy zone se upar hai, zone tak girne ka wait karo."}</div>`;
+  if(A.pos){
+    h+=`<h2 style="margin-top:14px">Quantity add karein?</h2>`;
+    if(A.sc>=1&&A.inZone){const k=Math.max(1,Math.round(A.qty*.5)),avg=(A.buy*A.qty+A.cur*k)/(A.qty+k);h+=`<div class="vd g" style="font-size:19px">Haan, thoda add kar sakte ho</div><div class="row"><span>Add karo (approx)</span><b>${k} shares</b></div><div class="row"><span>Naya average price</span><b>${fx(avg)}</b></div><div class="row"><span>Extra paisa</span><b>${fx(A.cur*k,0)}</b></div>`;}
+    else if(A.sc<=-1)h+=`<div class="vd r" style="font-size:19px">Abhi add mat karo</div><div class="note">Signal kamzor hai. Ghate me average down karna risky hota hai.</div>`;
+    else h+=`<div class="vd y" style="font-size:19px">Abhi wait karo</div><div class="note">Price ${fx(A.bz2,0)} ke aas-paas ya neeche aaye aur signal positive ho, tab add karna.</div>`;
+  }
+  $("lev").innerHTML=h;
+}
+function whyC(A){$("why").innerHTML=A?`<h2>Kyun?</h2><ul>${A.why.map(w=>"<li>"+esc(w)+"</li>").join("")}</ul>`:"";}
+
+function chart(A){
+  const b=S.bars;if(b.length<5)return`<div class="note">${esc(S.barErr||"Chart load ho raha hai...")}</div>`;
+  const W=360,H=270,vh=34,pl=6,pr=72,pt=10,pb=22,c=b.map(z=>z.c),buy=num($("buy").value);
+  const lv=[];if(A){lv.push({v:A.t2,t:"T2",k:"g"},{v:A.t1,t:"T1",k:"g"},{v:A.sl,t:"SL",k:"r"});}
+  if(buy)lv.push({v:buy,t:"Aapka",k:"a"});
+  if(S.tech&&S.tech.base)lv.push({v:S.tech.base,t:"Brk",k:"y"});
+  const ys=c.concat(lv.map(z=>z.v),A?[A.bz1,A.bz2]:[]);let mn=Math.min(...ys),mx=Math.max(...ys);const pd=(mx-mn)*.06||1;mn-=pd;mx+=pd;
+  const X=i=>pl+i*(W-pl-pr)/(c.length-1),Y=v=>pt+(mx-v)*(H-pt-pb-vh)/(mx-mn),col={g:"var(--g)",r:"var(--r)",a:"var(--ac)",y:"var(--y)"};
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Price chart">`;
+  if(A){s+=`<rect x="${pl}" y="${Y(A.bz2)}" width="${W-pl-pr}" height="${Math.max(2,Y(A.bz1)-Y(A.bz2))}" fill="var(--g)" opacity=".16"/>`;}
+  const labs=[];
+  const vs=b.map(z=>z.v||0),mV=Math.max(...vs,1);
+  b.forEach((z,i)=>{if(!z.v)return;const h=z.v/mV*vh,u=i===0||z.c>=b[i-1].c;s+=`<rect x="${X(i)-1}" y="${H-pb-h}" width="2" height="${h}" fill="${u?"var(--g)":"var(--r)"}" opacity=".5"/>`;});
+  s+=`<text x="${W-pr+4}" y="${H-pb-4}">Volume</text>`;
+  lv.forEach(z=>{s+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(z.v)}" y2="${Y(z.v)}" stroke="${col[z.k]}" stroke-dasharray="${z.k==="a"?"1 3":z.k==="y"?"2 2":"4 3"}" stroke-width="1"/>`;labs.push({y:Y(z.v),t:z.t+" "+Math.round(z.v),k:z.k});});
+  if(A)labs.push({y:(Y(A.bz1)+Y(A.bz2))/2,t:"Buy "+Math.round(A.bz1)+"-"+Math.round(A.bz2),k:"g"});
+  if(c.length>=50){let p="";for(let i=49;i<c.length;i++){const m=c.slice(i-49,i+1).reduce((a,v)=>a+v,0)/50;p+=X(i)+","+Y(m)+" ";}s+=`<polyline points="${p}" fill="none" stroke="var(--y)" stroke-width="1" opacity=".85"/>`;}
+  s+=`<polyline points="${c.map((v,i)=>X(i)+","+Y(v)).join(" ")}" fill="none" stroke="var(--tx)" stroke-width="1.6"/><circle cx="${X(c.length-1)}" cy="${Y(c[c.length-1])}" r="3" fill="var(--tx)"/>`;
+  labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<11)labs[i].y=labs[i-1].y+11;
+  labs.forEach(l=>{s+=`<text x="${W-pr+4}" y="${l.y+3}" style="fill:${col[l.k]}">${esc(l.t)}</text>`;});
+  s+=`<text x="${pl}" y="${H-6}">${esc(b[0].d)}</text><text x="${W-pr}" y="${H-6}" text-anchor="end">${esc(b[b.length-1].d)}</text></svg>`;
+  return s+`<div class="note">Hara band: buy zone. Hare dashed: sell targets. Lal: stop-loss. Peela: 50 din average. Neela dotted: aapka kharid price. Peela dotted Brk: breakout level. Neeche ke bars: volume.</div>`;
+}
+
+function info(){
+  const f=(a,b)=>b?`<div><span>${a}</span>${esc(b)}</div>`:"";
+  const cr=v=>v?"₹"+Math.round(v/1e7).toLocaleString("en-IN")+" Cr":null;
+  let h=`<h2>Company ki jaankari</h2><div class="facts">`+f("Sector",S.sector)+f("Industry",S.industry)+f("Exchange",S.exch)+f("Market cap",cr(S.mcap))
+   +f("52 week high (approx)",S.hi?fx(S.hi,0):null)+f("52 week low (approx)",S.lo?fx(S.lo,0):null)+f("50 din average",S.dma?fx(S.dma,0):null)+f("200 din average (approx)",S.dma200?fx(S.dma200,0):null)
+   +f("RSI (14)",S.rsi!=null?S.rsi.toFixed(0):null)+f("News sentiment",S.sent!=null?String(S.sent):null)+f("Analyst target",S.tgt?fx(S.tgt,0):null)+f("Latest EPS surprise",S.eps!=null?pc(S.eps):null)
+   +f("CEO",S.ceo)+f("Employees",S.emp)+f("ISIN",S.isin)+f("Website",S.web)+`</div>`;
+  const rk=Object.keys(S.ret);
+  if(rk.length)h+=`<div class="rets">${rk.map(k=>`<div>${esc(k)}<br><b class="${cl(S.ret[k])}">${pc(S.ret[k])}</b></div>`).join("")}</div>`;
+  if(S.desc)h+=`<details><summary>Company ke baare me</summary><p>${esc(S.desc)}</p></details>`;
+  $("info").innerHTML=h;
+}
+function ratC(){
+  if(!S.rat||!S.rat.length){$("rat").hidden=true;return;}
+  $("rat").hidden=false;$("rat").innerHTML=`<h2>Key ratios (latest)</h2>`+S.rat.map(r=>`<div class="row"><span>${esc(r[0])}</span><b>${esc(r[1])}</b></div>`).join("");
+}
+function peerC(){
+  if(!S.peers||!S.peers.length){$("peers").hidden=true;return;}
+  $("peers").hidden=false;$("peers").innerHTML=`<h2>Isi tarah ke dusre stocks</h2><div class="chips">`+S.peers.map(p=>`<button class="chip" data-act="peer" data-id="${esc(p.rp_entity_id)}" data-name="${esc(p.company_name)}">${esc(p.company_name)}${p.price?" "+fx(+p.price,0):""}</button>`).join("")+`</div>`;
+}
+
+/* ---------- watchlist tab ---------- */
+let ed=null,delc=null,pk=null,pmsg="",wmsg="";
+const total=()=>lists.reduce((n,l)=>n+l.items.length,0);
+function mkList(name){const l={id:"l"+Date.now().toString(36)+Math.floor(Math.random()*99),name:(name||"").trim().slice(0,30)||"List "+(lists.length+1),items:[]};lists.push(l);return l;}
+function drawWL(){
+  const keep=$("ledit")?$("ledit").value:null;
+  $("wc").textContent=total()?"("+total()+")":"";
+  const L=lists[act];
+  let h=`<div class="lst">`+lists.map((l,i)=>`<button class="chip${i===act?" on":""}" data-act="ls" data-li="${i}">${esc(l.name)} (${l.items.length})</button>`).join("")+`<button class="chip" data-act="lnew">+ Nayi list</button></div>`;
+  h+=`<div class="lh"><span class="note">${esc(L.name)}: ${L.items.length}/${MAXW} stocks${wmsg?" | "+esc(wmsg):""}</span><span><button class="mini" data-act="lren">Naam badlo</button> <button class="mini" data-act="ldel">${delc===act?"Pakka hatao?":"List hatao"}</button></span></div>`;
+  if(ed)h+=`<div class="lh"><input id="ledit" placeholder="List ka naam" maxlength="30" style="flex:1"><button class="mini" data-act="lsave">Save</button></div>`;
+  h+=L.items.length?L.items.map(i=>{const p=px[i.id],pl=p&&i.buy&&i.qty?(p.price-i.buy)*i.qty:null;
+    return`<div class="wr"><button class="nm" data-act="wopen" data-id="${esc(i.id)}" data-name="${esc(i.name)}">${esc(i.name)}<div class="note">${p?fx(p.price)+" "+pc(p.chg):""}${pl!=null?" | P&amp;L "+fx(pl,0):""}</div></button><button class="x" data-act="wdel" data-id="${esc(i.id)}" aria-label="Hatao">✕</button></div>`;}).join(""):`<div class="note" style="padding:14px">Ye list khali hai. Stock search karke ☆ dabao.</div>`;
+  $("wl").innerHTML=h;
+  if(ed){const e=$("ledit");e.value=keep!=null?keep:(ed.mode==="ren"?L.name:"");if(keep==null)e.focus();}
+}
+async function wlRefresh(){
+  const it=lists[act].items;if(!it.length)return;
+  try{
+    const r=await api("/api/quote?symbols="+encodeURIComponent(it.map(i=>i.id).join(",")));
+    it.forEach(i=>{const q=r[i.id];if(q)px[i.id]={price:q.price,chg:q.chg};});drawWL();
+  }catch(e){setSt(errT(e));}
+}
+function openPick(id,name,sym){pk={id,name,sym:sym||""};pmsg="";drawPick();}
+function drawPick(){
+  if(!pk){$("sheet").hidden=true;return;}
+  $("sheet").hidden=false;
+  $("sheet").innerHTML=`<div class="top"><b>${esc(pk.name)}</b><button class="mini" data-act="sclose">Done</button></div><div class="note" style="margin:6px 0">Kis list me jodna hai? Ek se zyada list chun sakte ho.</div>`
+   +lists.map((l,i)=>{const has=l.items.some(x=>x.id===pk.id);return`<button class="sr" data-act="lt" data-li="${i}"><span>${has?"✓ ":""}${esc(l.name)}</span><span class="note">${l.items.length}/${MAXW}</span></button>`;}).join("")
+   +`<div class="grid" style="grid-template-columns:1fr auto;margin-top:10px"><input id="snew" placeholder="Nayi list ka naam" maxlength="30"><button class="mini" data-act="snew">Banao aur jodo</button></div>`+(pmsg?`<div class="note r" style="margin-top:6px">${esc(pmsg)}</div>`:"");
+}
+function toggleIn(li){
+  const l=lists[li],k=l.items.findIndex(x=>x.id===pk.id);
+  if(k>=0)l.items.splice(k,1);
+  else if(l.items.length>=MAXW){pmsg="Ye list full hai ("+MAXW+" stocks). Dusri list chuno.";drawPick();return;}
+  else{const same=S&&S.id===pk.id;l.items.push({id:pk.id,name:pk.name,symbol:pk.sym||"",buy:same?num($("buy").value):null,qty:same?num($("qty").value):null});}
+  pmsg="";saveWL();drawWL();if(S)head();drawSug();drawPick();
+}
+
+/* ---------- events ---------- */
+function tab(n){[1,2,3].forEach(i=>{$("v"+i).hidden=n!==i;$("t"+i).className=n===i?"on":"";});if(n===2)wlRefresh();if(n===3)drawAlr();}
+$("t1").onclick=()=>tab(1);$("t2").onclick=()=>tab(2);$("t3").onclick=()=>tab(3);$("wr").onclick=wlRefresh;$("scan").onclick=scan;$("btgo").onclick=runBT;
+let pt;
+["buy","qty"].forEach(id=>$(id).oninput=()=>{
+  if(!S)return;const A=calc();ver(A);$("chart").innerHTML=chart(A);lev(A);whyC(A);
+  let hit=false;lists.forEach(l=>l.items.forEach(w=>{if(w.id===S.id){w.buy=num($("buy").value);w.qty=num($("qty").value);hit=true;}}));
+  if(hit){clearTimeout(pt);pt=setTimeout(()=>{saveWL();drawWL();},700);}
+});
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-act]");if(!t)return;const a=t.dataset.act,d=t.dataset;
+  if(a==="refresh")liveTick();
+  else if(a==="pick"||a==="peer")analyse({id:d.id,name:d.name});
+  else if(a==="star")openPick(S.id,S.name,S.ticker);
+  else if(a==="sstar")openPick(d.id,d.name,"");
+  else if(a==="wopen"){tab(1);analyse({id:d.id,name:d.name});}
+  else if(a==="wdel"){lists[act].items=lists[act].items.filter(i=>i.id!==d.id);saveWL();drawWL();if(S)head();}
+  else if(a==="ls"){act=+d.li;ed=null;delc=null;wmsg="";saveWL();drawWL();wlRefresh();}
+  else if(a==="lnew"){ed={mode:"new"};delc=null;wmsg="";drawWL();}
+  else if(a==="lren"){ed={mode:"ren"};delc=null;wmsg="";drawWL();}
+  else if(a==="lsave"){const v=$("ledit").value;if(ed&&ed.mode==="new"){mkList(v);act=lists.length-1;}else lists[act].name=v.trim().slice(0,30)||lists[act].name;ed=null;saveWL();drawWL();}
+  else if(a==="ldel"){if(lists.length<2)wmsg="Kam se kam ek list rehni chahiye.";else if(delc===act){lists.splice(act,1);act=0;delc=null;wmsg="";saveWL();if(S)head();drawSug();}else{delc=act;wmsg="";}drawWL();}
+  else if(a==="lt")toggleIn(+d.li);
+  else if(a==="snew"){const l=mkList($("snew").value);toggleIn(lists.indexOf(l));}
+  else if(a==="sclose"){pk=null;drawPick();}
+  else if(a==="alert"){if(alerts.some(x=>x.id===S.id)){alerts=alerts.filter(x=>x.id!==S.id);saveWL();drawAlr();techC();}else setAlert(S.id,S.name,S.tech,S.price);}
+  else if(a==="sopen"){const r=scanOut[+d.i];if(r){tab(1);analyse({id:r.id,name:r.name});}}
+  else if(a==="salert"){const r=scanOut[+d.i];if(r)setAlert(r.id,r.name,r.T,r.price);}
+  else if(a==="sstar2"){const r=scanOut[+d.i];if(r)openPick(r.id,r.name,r.ticker);}
+  else if(a==="adel"){alerts=alerts.filter(x=>x.id!==d.id);saveWL();drawAlr();if(S&&S.tech)techC();}
+  else if(a==="tdel"){toasts.splice(+d.i,1);drawToast();}
+});
+setInterval(()=>{if(document.hidden||!marketOpen())return;alertTick();if(!$("v2").hidden)wlRefresh();else if(!$("v1").hidden&&S&&S.price)liveTick();},60000);
+if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
+init();
+</script>
+</body>
+</html>
