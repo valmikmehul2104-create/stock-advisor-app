@@ -1,4 +1,5 @@
 """Stock Advisor: Flask server. Data Yahoo Finance (yfinance) se, bina key ke."""
+import hashlib
 import math
 import os
 import time
@@ -6,16 +7,81 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import yfinance as yf
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, redirect, request, send_from_directory, session
+from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from backtest import run as bt_run, stats as bt_stats
 from technical import analyse
 from universe import CAP, SECTORS, UNIVERSE
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)  # Render ke proxy ke peeche asli IP/https
 HERE = os.path.dirname(os.path.abspath(__file__))
-STATIC = {"manifest.json", "sw.js", "icon-192.png", "icon-512.png"}
+STATIC = {"manifest.json", "sw.js", "icon-192.png", "icon-512.png"}  # bina login ke bhi khulti hain
 _cache = {}
+
+# ---------------------------------------------------------------- login
+# Username/password Render ke Environment variables se aate hain (README dekho):
+#   APP_USERNAME + APP_PASSWORD           -> ek user
+#   APP_USERS = "ram:pass1;shyam:pass2"   -> kai users (alag karne ke liye ; )
+# Kuch set nahi kiya to demo login chalta hai: admin / admin123 (isse jaldi badal do).
+
+
+def _load_users():
+    raw = []
+    if os.getenv("APP_USERNAME") and os.getenv("APP_PASSWORD"):
+        raw.append((os.environ["APP_USERNAME"].strip(), os.environ["APP_PASSWORD"]))
+    for part in os.getenv("APP_USERS", "").split(";"):
+        if ":" in part:
+            u, p = part.split(":", 1)
+            if u.strip() and p:
+                raw.append((u.strip(), p))
+    default = False
+    users = {u.lower(): (u, generate_password_hash(p)) for u, p in raw}
+    seed = "|".join(sorted("%s:%s" % (u.lower(), p) for u, p in raw))
+    return users, default, seed
+
+
+USERS, DEFAULT_LOGIN, _SEED = _load_users()
+AUTH_ON = bool(USERS)  # APP_USERNAME/APP_PASSWORD set nahi hai to login band, app seedha khulta hai
+DUMMY_HASH = generate_password_hash("not-a-real-password")
+app.secret_key = os.getenv("SECRET_KEY") or hashlib.sha256(("sa-session-v1|" + _SEED).encode()).hexdigest()
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
+                  SESSION_COOKIE_SECURE=bool(os.getenv("RENDER")),
+                  PERMANENT_SESSION_LIFETIME=timedelta(days=30))
+if not AUTH_ON:
+    print("INFO: login band hai (koi bhi app khol sakta hai). Login chahiye to APP_USERNAME aur APP_PASSWORD set karo.")
+
+_fails = {}  # ip -> [kitni galti, pehli galti ka time, lock khatam hone ka time]
+MAX_FAILS, FAIL_WINDOW, LOCK_SECS = 5, 600, 300
+
+
+def _locked(ip):
+    f = _fails.get(ip)
+    return bool(f and f[2] > time.time())
+
+
+def _fail(ip):
+    now = time.time()
+    f = _fails.get(ip)
+    if not f or now - f[1] > FAIL_WINDOW:
+        f = [0, now, 0]
+    f[0] += 1
+    if f[0] >= MAX_FAILS:
+        f[2] = now + LOCK_SECS
+        f[0], f[1] = 0, now
+    _fails[ip] = f
+    if len(_fails) > 2000:
+        for k in [k for k, v in _fails.items() if v[2] < now and now - v[1] > FAIL_WINDOW]:
+            _fails.pop(k, None)
+
+
+def current_user():
+    if not AUTH_ON:
+        return "Me"
+    u = session.get("u")
+    return u if u and u.lower() in USERS else None
 
 
 def cached(key, ttl, fn):
@@ -138,12 +204,67 @@ def sentiment(sym):
         return None
 
 
+@app.before_request
+def gate():
+    p = request.path
+    if p in ("/login", "/api/login") or p.lstrip("/") in STATIC or current_user():
+        return None
+    if p.startswith("/api/"):
+        return err("Pehle login karo.", 401)
+    return redirect("/login")
+
+
+@app.after_request
+def headers(r):
+    r.headers["X-Content-Type-Options"] = "nosniff"
+    r.headers["Referrer-Policy"] = "same-origin"
+    if request.path.startswith("/api/") or request.path in ("/", "/login"):
+        r.headers["Cache-Control"] = "no-store"
+    return r
+
+
 # ---------------------------------------------------------------- pages
 @app.route("/")
 def index():
-    r = send_from_directory(HERE, "index.html")
-    r.headers["Cache-Control"] = "no-cache"
-    return r
+    return send_from_directory(HERE, "index.html")
+
+
+@app.route("/login")
+def login_page():
+    if current_user():
+        return redirect("/")
+    return send_from_directory(HERE, "login.html")
+
+
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    d = request.get_json(silent=True) or {}
+    ip = request.remote_addr or "?"
+    if _locked(ip):
+        return err("Bahut galat koshish hui. 5 minute baad dobara try karo.", 429)
+    u = str(d.get("username", "")).strip()
+    p = str(d.get("password", ""))
+    rec = USERS.get(u.lower())
+    ok = check_password_hash(rec[1] if rec else DUMMY_HASH, p) and rec is not None
+    if not ok:
+        _fail(ip)
+        return err("Username ya password galat hai.", 401)
+    _fails.pop(ip, None)
+    session.clear()
+    session["u"] = rec[0]
+    session.permanent = True
+    return reply({"user": rec[0]})
+
+
+@app.route("/api/logout", methods=["POST"])
+def api_logout():
+    session.clear()
+    return reply({"ok": True})
+
+
+@app.route("/api/me")
+def api_me():
+    return reply({"user": current_user(), "auth": AUTH_ON})
 
 
 @app.route("/<path:name>")
@@ -300,6 +421,148 @@ def api_scan():
                         "T": {k: T[k] for k in ("score", "label", "k", "sum", "state", "base", "entry", "sl", "t1", "t2")}})
     res.sort(key=lambda r: -r["T"]["score"])
     return reply({"checked": len(fr), "results": res[:n]})
+
+
+RANGES = {"1D": ("5d", "5m", 60), "1W": ("5d", "15m", 120), "1M": ("1mo", "1h", 300), "3M": ("3mo", "1d", 600),
+          "6M": ("6mo", "1d", 600), "1Y": ("1y", "1d", 600), "5Y": ("5y", "1wk", 900), "All": ("max", "1mo", 900)}
+
+
+def to_bars_t(df, intraday):
+    fmt = "%Y-%m-%d %H:%M" if intraday else "%Y-%m-%d"
+    bars = []
+    for ts, r in df.iterrows():
+        c = fnum(r.get("Close"))
+        if c is None:
+            continue
+        bars.append({"d": ts.strftime(fmt), "o": fnum(r.get("Open")) or c, "h": fnum(r.get("High")) or c,
+                     "l": fnum(r.get("Low")) or c, "c": c, "v": fnum(r.get("Volume")) or 0.0})
+    return bars
+
+
+@app.route("/api/chart")
+def api_chart():
+    sym = request.args.get("symbol", "").strip().upper()
+    rng = request.args.get("range", "1D")
+    cfg = RANGES.get(rng)
+    if not sym or not cfg:
+        return err("Symbol ya range sahi nahi.")
+    intraday = cfg[1] in ("5m", "15m", "1h")
+
+    def build():
+        h = yf.Ticker(sym).history(period=cfg[0], interval=cfg[1], auto_adjust=False)
+        if h is None or h.empty:
+            return None
+        bars = to_bars_t(h.dropna(subset=["Close"]), intraday)
+        prev = None
+        if rng == "1D" and bars:  # sirf aakhri trading din, aur usse pehle ka close
+            last = bars[-1]["d"][:10]
+            old = [b for b in bars if b["d"][:10] != last]
+            prev = old[-1]["c"] if old else None
+            bars = [b for b in bars if b["d"][:10] == last]
+        return {"range": rng, "bars": bars[-400:], "prev": prev}
+    try:
+        d = cached("ch:%s:%s" % (sym, rng), cfg[2], build)
+    except Exception:
+        return err("Chart data lene me dikkat aayi.", 502)
+    return reply(d or {"range": rng, "bars": [], "prev": None})
+
+
+@app.route("/api/news")
+def api_news():
+    sym = request.args.get("symbol", "").strip().upper()
+    if not sym:
+        return err("Symbol do.")
+
+    def build():
+        try:
+            raw = yf.Ticker(sym).news or []
+        except Exception:
+            raw = []
+        try:
+            from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+            an = SentimentIntensityAnalyzer()
+        except Exception:
+            an = None
+        out = []
+        for it in raw[:20]:
+            c = it.get("content") or it
+            title = c.get("title")
+            if not title:
+                continue
+            url = ((c.get("canonicalUrl") or {}).get("url") or (c.get("clickThroughUrl") or {}).get("url")
+                   or c.get("link") or "")
+            if not str(url).startswith(("http://", "https://")):
+                url = ""
+            pub = (c.get("provider") or {}).get("displayName") or c.get("publisher") or ""
+            when = c.get("pubDate") or c.get("displayTime") or ""
+            if not when and it.get("providerPublishTime"):
+                when = datetime.fromtimestamp(it["providerPublishTime"], timezone.utc).isoformat()
+            sc = round(an.polarity_scores(title)["compound"], 2) if an else None
+            out.append({"title": title, "url": url, "pub": pub, "t": str(when), "s": sc,
+                        "sum": (c.get("summary") or "")[:220]})
+        return out
+    try:
+        return reply(cached("n:" + sym, 600, build))
+    except Exception:
+        return err("News nahi mili, thodi der baad try karo.", 502)
+
+
+@app.route("/api/events")
+def api_events():
+    sym = request.args.get("symbol", "").strip().upper()
+    if not sym:
+        return err("Symbol do.")
+
+    def dstr(x):
+        try:
+            return str(x)[:10]
+        except Exception:
+            return None
+
+    def build():
+        t = yf.Ticker(sym)
+        up = []
+        try:
+            cal = t.calendar
+            cal = cal.to_dict() if hasattr(cal, "to_dict") else (cal or {})
+            for k, v in cal.items():
+                vals = v if isinstance(v, (list, tuple)) else [v]
+                if k.lower().endswith("date") and vals and vals[0] is not None:
+                    up.append({"label": k, "d": dstr(vals[0]) + (" se " + dstr(vals[-1]) if len(vals) > 1 else "")})
+        except Exception:
+            pass
+        divs, splits = [], []
+        try:
+            ds = t.dividends
+            divs = [{"d": dstr(i), "v": fnum(v)} for i, v in list(ds.items())[-8:]][::-1]
+        except Exception:
+            pass
+        try:
+            sp = t.splits
+            splits = [{"d": dstr(i), "v": fnum(v)} for i, v in list(sp.items())[-5:]][::-1]
+        except Exception:
+            pass
+        return {"upcoming": up, "dividends": divs, "splits": splits}
+    try:
+        return reply(cached("e:" + sym, 1800, build))
+    except Exception:
+        return err("Events nahi mile, thodi der baad try karo.", 502)
+
+
+INDICES = [("^NSEI", "NIFTY 50"), ("^BSESN", "SENSEX"), ("^NSEBANK", "BANK NIFTY")]
+
+
+@app.route("/api/explore")
+def api_explore():
+    big = [s for s in UNIVERSE if CAP.get(s) == "large"][:40]
+    try:
+        qs = quotes([i for i, _ in INDICES] + big)
+    except Exception:
+        return err("Market data nahi mila, thodi der baad try karo.", 502)
+    idx = [{"id": i, "name": n, **qs[i]} for i, n in INDICES if i in qs]
+    stocks = [{"id": s, "name": s.rsplit(".", 1)[0], **qs[s]} for s in big if s in qs]
+    stocks.sort(key=lambda x: -x["chg"])
+    return reply({"indices": idx, "gainers": stocks[:6], "losers": stocks[::-1][:6]})
 
 
 @app.route("/api/backtest")

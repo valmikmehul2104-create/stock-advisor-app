@@ -1,5 +1,7 @@
 # Stock Advisor: phone par icon wala app (Yahoo Finance data, koi limit nahi)
 
+**Naya:** Groww jaisa interface (candle chart, 1D-All range, Overview / Technicals / News / Events, Buy-Sell bar, bottom menu) aur (chahe to) username + password login.
+
 Isme: stock search (suggestions), chart + volume, breakout/pattern analysis, buy zone/SL/targets,
 multiple watchlist (har me 50 stocks), breakout scanner (Large + Mid + Small cap, ~430 NSE stocks),
 10 saal ka backtest, price alerts (jab app khula ho). Watchlist aur alerts aapke phone ke browser me save hote hain.
@@ -15,10 +17,10 @@ multiple watchlist (har me 50 stocks), breakout scanner (Large + Mid + Small cap
    - **Create repository** dabao.
 4. Khuli hui khali repo me **uploading an existing file** link dabao.
 5. **choose your files** dabao > extracted folder kholo > **saari files** select karo (long-press karke baaki par tap):
-   `app.py, backtest.py, technical.py, universe.py, requirements.txt, index.html, manifest.json, sw.js, icon-192.png, icon-512.png, README.md`
+   `app.py, backtest.py, technical.py, universe.py, requirements.txt, index.html, login.html, manifest.json, sw.js, icon-192.png, icon-512.png, README.md`
    Dhyan rakho: `__pycache__` jaisa koi folder ho to use mat daalo.
 6. Upload poora hone do, neeche **Commit changes** dabao.
-7. Repo ke page par saari 11 files dikhni chahiye. Dikh gayi to ye part ho gaya.
+7. Repo ke page par saari 12 files dikhni chahiye (`login.html` bhi). Dikh gayi to ye part ho gaya.
 
 ====================================================================
 ## PART 2: Render.com par chalana (free)
@@ -42,6 +44,15 @@ multiple watchlist (har me 50 stocks), breakout scanner (Large + Mid + Small cap
    Agar build me Python version ka error aaye: **Environment** tab > Add Environment Variable >
    Key `PYTHON_VERSION`, Value `3.11.9` > Save, phir **Manual Deploy > Deploy latest commit**.
 7. Wo link phone ke **Chrome** me kholo. Menu (teen dots) > **Install app** (ya **Add to Home screen**). Icon aa gaya.
+
+====================================================================
+## Login ke baare me
+====================================================================
+- Abhi login **band** hai: link kholte hi app khul jata hai (koi username/password nahi).
+- Dhyan rakho: link jiske paas ho wo app use kar sakta hai. Link kisi ko mat bhejo.
+- Baad me login chahiye to Render > **Environment** me `APP_USERNAME` aur `APP_PASSWORD` daalo (kai users: `APP_USERS` = `ram:pass1;shyam:pass2`). Save karte hi login chalu ho jayega.
+- Watchlist, holdings (Buy/Sell record) aur alerts us phone ke browser me save hote hain.
+- **Buy / Sell** asli order nahi lagate, sirf aapka portfolio record hai.
 
 ====================================================================
 ## UPDATE kaise karein (baad me kuch badalna ho)
