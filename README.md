@@ -17,10 +17,10 @@ multiple watchlist (har me 50 stocks), breakout scanner (Large + Mid + Small cap
    - **Create repository** dabao.
 4. Khuli hui khali repo me **uploading an existing file** link dabao.
 5. **choose your files** dabao > extracted folder kholo > **saari files** select karo (long-press karke baaki par tap):
-   `app.py, backtest.py, technical.py, universe.py, requirements.txt, index.html, login.html, manifest.json, sw.js, icon-192.png, icon-512.png, README.md`
+   `app.py, backtest.py, technical.py, patterns.py, universe.py, requirements.txt, index.html, login.html, manifest.json, sw.js, icon-192.png, icon-512.png, README.md`
    Dhyan rakho: `__pycache__` jaisa koi folder ho to use mat daalo.
 6. Upload poora hone do, neeche **Commit changes** dabao.
-7. Repo ke page par saari 12 files dikhni chahiye (`login.html` bhi). Dikh gayi to ye part ho gaya.
+7. Repo ke page par saari 13 files dikhni chahiye (`login.html` bhi). Dikh gayi to ye part ho gaya.
 
 ====================================================================
 ## PART 2: Render.com par chalana (free)
@@ -61,6 +61,31 @@ multiple watchlist (har me 50 stocks), breakout scanner (Large + Mid + Small cap
 - **Teji ya giravat ki vajah:** technical signals, fundamentals, analyst target aur news se "upar le jane wale" aur "niche le jane wale" karan alag-alag.
 - **News tab:** positive aur negative news alag, har headline ke saath "stock upar/niche ja sakta hai". News yfinance aur Google News se aati hai. Sentiment headline ke shabdon se automatic nikalta hai, isliye kabhi galat ho sakta hai.
 - **Kitne time ke liye khareedein:** BTST (1 din), Swing (3-15 din), Short term (1-3 mahine), Long term (1 saal+). Har ek ka score, wajah, entry, stop-loss aur target.
+
+====================================================================
+## NAYA (v5): Chart Pattern interface + phone notification
+====================================================================
+**Patterns tab (neeche menu me):** sirf chart ke pattern par stocks ki alag list.
+- 3 list: **Breakout ↑** (upar toota), **Breakdown ↓** (neeche toota), **Banne wale** (line ke paas, abhi toota nahi).
+- Pattern jo pakde jaate hain: Ascending / Descending / Symmetrical triangle, Rectangle (range), Rising / Falling wedge,
+  Double top / bottom, Head & shoulders (aur ulta), Bull / Bear flag.
+- Har stock par: pattern ka naam, Score, Entry, Stop-loss, Target 1/2, Risk:Reward, volume.
+- **Chart + analysis** dabao: candlestick chart, pattern ki lines, breakout candle ka nishan, aur Entry/SL/Target ka hara-lal dabba (figure).
+  Neeche: pattern kya hai, kyun, trade plan, aakhri 5 din ke candlestick signals (Engulfing, Hammer, Doji...).
+- Kisi bhi stock ke andar bhi naya **Patterns** tab hai (Overview / Technicals / Patterns / News / Events).
+- Score 70+ = strong, 50-69 = theek, 50 se kam = kamzor. Pattern fail bhi hote hain, stop-loss zaroor lagao.
+
+**Phone notification (breakout / breakdown alert):**
+1. App ko Chrome se **Install app / Add to Home screen** karke icon se kholo.
+2. Patterns tab ke neeche **Notification chalu karo** dabao > **Allow**. **Test notification bhejo** se check karo.
+3. Ab watchlist ke stocks me naya breakout/breakdown hone par, aur aapke lagaye alerts (breakout / stop-loss / target) par notification aayegi, app band ho tab bhi.
+4. **Zaroori (free cron):** free Render server 15 minute me so jata hai aur soye hue server se notification nahi jaati. Isliye:
+   - cron-job.org kholo > free sign up > **Create cronjob**.
+   - URL: `https://aapka-naam.onrender.com/ping` (apna Render link) > Schedule: **Every 10 minutes** > Save.
+   - Ye server ko jaga rakhta hai aur market ke samay (9 se 4 baje, Somvar-Shukravar) har 5-10 minute me check chalata hai.
+5. Jab bhi GitHub me update karo (Render dobara deploy kare), app ek baar kholo, taaki notification dobara register ho jaye.
+- Notification ke liye `pywebpush` install hota hai (requirements.txt me hai). Deploy me 1-2 minute zyada lag sakte hain.
+- Notification ki chabi (VAPID) apne aap ban jaati hai. Chaho to Render Environment me `VAPID_PUBLIC` aur `VAPID_PRIVATE` khud daal sakte ho.
 
 ====================================================================
 ## UPDATE kaise karein (baad me kuch badalna ho)

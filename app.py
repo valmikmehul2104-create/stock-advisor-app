@@ -1,7 +1,10 @@
 """Stock Advisor: Flask server. Data Yahoo Finance (yfinance) se, bina key ke."""
+import base64
 import hashlib
+import json
 import math
 import os
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -12,6 +15,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from backtest import run as bt_run, stats as bt_stats
+from patterns import analyse as pt_analyse, best as pt_best
 from technical import analyse
 from universe import CAP, SECTORS, UNIVERSE
 
@@ -207,7 +211,7 @@ def sentiment(sym):
 @app.before_request
 def gate():
     p = request.path
-    if p in ("/login", "/api/login") or p.lstrip("/") in STATIC or current_user():
+    if p in ("/login", "/api/login", "/ping") or p.lstrip("/") in STATIC or current_user():
         return None
     if p.startswith("/api/"):
         return err("Pehle login karo.", 401)
@@ -657,6 +661,287 @@ def api_backtest():
     if not rows:
         return err("History data nahi mila.", 502)
     return reply({"s": bt_stats(sig_all), "b": bt_stats(bas_all), "rows": rows})
+
+
+# ---------------------------------------------------------------- chart patterns
+@app.route("/api/patterns")
+def api_patterns():
+    src = request.args.get("src", "nse")
+    n = max(1, min(int(request.args.get("n", "20") or 20), 50))
+    if src == "wl":
+        syms = [s.strip().upper() for s in request.args.get("symbols", "").split(",") if s.strip()][:50]
+        if not syms:
+            return err("Watchlist khali hai.")
+    else:
+        syms = [s for s in UNIVERSE if src in ("all", "nse") or CAP.get(s) == src]
+        if not syms:
+            return err("Ye option sahi nahi hai.")
+    key = "scan:" + (",".join(syms) if src == "wl" else src)  # breakout scanner ke saath data share hota hai
+    try:
+        fr = cached(key, 300, lambda: frames(syms, "6mo"))
+    except Exception:
+        return err("Data lene me dikkat aayi.", 502)
+    open_ = market_open()
+    up, down, near = [], [], []
+    for s, df in fr.items():
+        try:
+            P = pt_best(to_bars(df, open_))
+        except Exception:
+            continue
+        if not P:
+            continue
+        c = df["Close"].dropna()
+        price = float(c.iloc[-1])
+        prev = float(c.iloc[-2]) if len(c) > 1 else price
+        liq = float(df["Volume"].fillna(0).tail(20).mean()) * price / 1e7
+        if src != "wl" and liq < 1.0:
+            continue
+        if P["state"] == "near" and P["score"] < 35:
+            continue
+        it = {"id": s, "name": s.rsplit(".", 1)[0], "cap": CAP.get(s, "").capitalize(), "price": price, "liq": round(liq, 1),
+              "chg": (price / prev - 1) * 100 if prev else 0.0, "P": P}
+        (near if P["state"] == "near" else up if P["dir"] == "up" else down).append(it)
+    for L in (up, down, near):
+        L.sort(key=lambda r: -r["P"]["score"])
+    return reply({"checked": len(fr), "up": up[:n], "down": down[:n], "near": near[:n]})
+
+
+@app.route("/api/pattern")
+def api_pattern():
+    sym = request.args.get("symbol", "").strip().upper()
+    if not sym:
+        return err("Symbol do.")
+
+    def build():
+        h = yf.Ticker(sym).history(period="1y", interval="1d", auto_adjust=False)
+        if h is None or h.empty:
+            return None
+        bars = to_bars(h.dropna(subset=["Close"]), market_open())[-130:]
+        a = pt_analyse(bars)
+        return {"bars": bars, "pats": a["all"] if a else [], "candles": a["candles"] if a else []}
+    try:
+        d = cached("pt:" + sym, 120, build)
+    except Exception:
+        return err("Chart data lene me dikkat aayi.", 502)
+    if not d:
+        return err("Is symbol ka data nahi mila.", 404)
+    return reply(d)
+
+
+# ---------------------------------------------------------------- phone notification (Web Push)
+PUSH_FILE = os.path.join(HERE, "push_subs.json")
+VAPID_FILE = os.path.join(HERE, "vapid.json")
+PUSH_HOSTS = ("fcm.googleapis.com", "push.services.mozilla.com", "push.apple.com", "notify.windows.com")
+PUSH, SENT = {}, set()  # PUSH: endpoint -> {user, sub, symbols, alerts}
+_vapid = None
+_last_check = 0.0
+_check_lock = threading.Lock()
+
+
+def vapid_keys():
+    """Env me VAPID_PUBLIC / VAPID_PRIVATE ho to wo, warna apne aap ban jati hain."""
+    global _vapid
+    if _vapid:
+        return _vapid
+    pub, priv = os.getenv("VAPID_PUBLIC"), os.getenv("VAPID_PRIVATE")
+    if not (pub and priv):
+        try:
+            with open(VAPID_FILE) as f:
+                j = json.load(f)
+            pub, priv = j["pub"], j["priv"]
+        except Exception:
+            try:
+                from cryptography.hazmat.primitives import serialization as ser
+                from cryptography.hazmat.primitives.asymmetric import ec
+                k = ec.generate_private_key(ec.SECP256R1())
+                b64 = lambda b: base64.urlsafe_b64encode(b).rstrip(b"=").decode()
+                pub = b64(k.public_key().public_bytes(ser.Encoding.X962, ser.PublicFormat.UncompressedPoint))
+                priv = b64(k.private_numbers().private_value.to_bytes(32, "big"))
+                try:
+                    with open(VAPID_FILE, "w") as f:
+                        json.dump({"pub": pub, "priv": priv}, f)
+                except Exception:
+                    pass
+            except Exception:
+                return None
+    _vapid = {"pub": pub, "priv": priv}
+    return _vapid
+
+
+def save_push():
+    try:
+        with open(PUSH_FILE, "w") as f:
+            json.dump(PUSH, f)
+    except Exception:
+        pass
+
+
+def load_push():
+    try:
+        with open(PUSH_FILE) as f:
+            PUSH.update(json.load(f))
+    except Exception:
+        pass
+
+
+def push_send(ep, title, body, url="/"):
+    rec = PUSH.get(ep)
+    v = vapid_keys()
+    if not rec or not v:
+        return False
+    try:
+        from pywebpush import WebPushException, webpush
+    except Exception:
+        return False
+    try:
+        webpush(subscription_info=rec["sub"], data=json.dumps({"title": title, "body": body, "url": url}),
+                vapid_private_key=v["priv"], vapid_claims={"sub": os.getenv("VAPID_SUB", "mailto:admin@example.com")}, ttl=7200)
+        return True
+    except WebPushException as e:
+        code = getattr(getattr(e, "response", None), "status_code", None)
+        if code in (404, 410):  # subscription khatam ho gayi
+            PUSH.pop(ep, None)
+            save_push()
+        return False
+    except Exception:
+        return False
+
+
+def in_window():
+    t = ist_now()
+    m = t.hour * 60 + t.minute
+    return t.weekday() < 5 and 540 <= m <= 960  # 9:00 se 16:00 IST
+
+
+def push_check():
+    """Watchlist / alert wale stocks me naya breakout-breakdown ya level cross ho to notification."""
+    global _last_check
+    if not _check_lock.acquire(blocking=False):
+        return
+    try:
+        _last_check = time.time()
+        recs = list(PUSH.items())
+        syms = sorted({s for _, r in recs for s in r["symbols"]} | {a["id"] for _, r in recs for a in r["alerts"]})[:100]
+        if not syms:
+            return
+        fr = cached("pc:" + ",".join(syms), 200, lambda: frames(syms, "6mo"))
+        open_ = market_open()
+        today = ist_now().strftime("%Y-%m-%d")
+        det = {}
+        for s, df in fr.items():
+            try:
+                bars = to_bars(df, open_)
+                det[s] = (pt_best(bars), bars[-1]["c"])
+            except Exception:
+                pass
+        fmt = lambda v: "{:,.0f}".format(v)
+        if len(SENT) > 5000:
+            SENT.clear()
+        for ep, r in recs:
+            for s in r["symbols"]:
+                P = (det.get(s) or (None,))[0]
+                if not P or P["state"] != "brk" or P["k"] > 2 or P["score"] < 45:
+                    continue
+                key = "|".join([ep[-24:], s, P["name"], P["dir"], today])
+                if key in SENT:
+                    continue
+                SENT.add(key)
+                nm = s.rsplit(".", 1)[0]
+                push_send(ep, ("🟢 BREAKOUT: " if P["dir"] == "up" else "🔴 BREAKDOWN: ") + nm,
+                          "%s | Entry %s, SL %s, T1 %s (score %d)" % (P["name"], fmt(P["entry"]), fmt(P["sl"]), fmt(P["t1"]), P["score"]),
+                          "/?p=" + s)
+            for a in r["alerts"]:
+                d = det.get(a["id"])
+                if not d:
+                    continue
+                p, dn = d[1], a.get("dir") == "dn"
+                nm = a.get("name") or a["id"].rsplit(".", 1)[0]
+                hits = []
+                if a.get("brk"):
+                    hits.append(("brk", a["brk"], p <= a["brk"] if dn else p >= a["brk"],
+                                 ("🔴 BREAKDOWN: " if dn else "🟢 BREAKOUT: ") + nm + " ne " + fmt(a["brk"]) + (" tod diya" if dn else " cross kiya")))
+                if a.get("sl"):
+                    hits.append(("sl", a["sl"], p >= a["sl"] if dn else p <= a["sl"], "🛑 STOP-LOSS: " + nm + " " + fmt(a["sl"]) + " par aa gaya"))
+                if a.get("t1"):
+                    hits.append(("t1", a["t1"], p <= a["t1"] if dn else p >= a["t1"], "🎯 TARGET: " + nm + " ne " + fmt(a["t1"]) + " choo liya"))
+                for kind, lv, ok, msg in hits:
+                    key = "|".join([ep[-24:], a["id"], kind, str(round(lv, 2))])
+                    if ok and key not in SENT:
+                        SENT.add(key)
+                        push_send(ep, msg, "Abhi bhav " + fmt(p), "/?p=" + a["id"])
+    finally:
+        _check_lock.release()
+
+
+def _bg():
+    while True:
+        time.sleep(240)
+        try:
+            if in_window() and time.time() - _last_check > 200:
+                push_check()
+        except Exception:
+            pass
+
+
+@app.route("/ping")
+def ping():
+    """Bahar ki free cron service (cron-job.org) har 10 min isko kholti hai: server soye nahi + check chale."""
+    if in_window() and time.time() - _last_check > 200:
+        threading.Thread(target=push_check, daemon=True).start()
+    return "ok"
+
+
+@app.route("/api/push/key")
+def api_push_key():
+    v = vapid_keys()
+    try:
+        import pywebpush  # noqa: F401
+    except Exception:
+        return reply({"key": None, "error": "Server par pywebpush install nahi hai (requirements.txt update karo)."})
+    return reply({"key": v["pub"] if v else None})
+
+
+@app.route("/api/push/register", methods=["POST"])
+def api_push_register():
+    j = request.get_json(silent=True) or {}
+    sub = j.get("sub") or {}
+    ep = str(sub.get("endpoint", ""))
+    host = ep.split("/")[2] if ep.startswith("https://") and ep.count("/") >= 3 else ""
+    if not host or not host.endswith(PUSH_HOSTS) or not (sub.get("keys") or {}).get("p256dh"):
+        return err("Notification subscription sahi nahi hai.")
+    num = lambda v: v if isinstance(v, (int, float)) and not isinstance(v, bool) and v == v else None
+    alerts = [{"id": str(a.get("id", ""))[:20].upper(), "name": str(a.get("name", ""))[:30], "brk": num(a.get("brk")), "sl": num(a.get("sl")),
+               "t1": num(a.get("t1")), "dir": "dn" if a.get("dir") == "dn" else "up"}
+              for a in (j.get("alerts") or [])[:30] if isinstance(a, dict) and a.get("id")]
+    PUSH[ep] = {"user": current_user(), "sub": {"endpoint": ep, "keys": sub["keys"]},
+                "symbols": [str(s)[:20].upper() for s in (j.get("symbols") or [])][:40], "alerts": alerts}
+    save_push()
+    return reply({"ok": True})
+
+
+@app.route("/api/push/test", methods=["POST"])
+def api_push_test():
+    me = current_user()
+    eps = [e for e, r in PUSH.items() if r["user"] == me]
+    if not eps:
+        return err("Pehle notification chalu karo.")
+    ok = sum(1 for e in eps if push_send(e, "✅ Stock Advisor", "Notification sahi chal raha hai. Breakout/breakdown par aise hi aayega."))
+    return reply({"sent": ok}) if ok else err("Notification bhej nahi paye. Chalu karke dobara try karo.", 502)
+
+
+@app.route("/api/push/off", methods=["POST"])
+def api_push_off():
+    ep = str(((request.get_json(silent=True) or {}).get("endpoint")) or "")
+    if PUSH.get(ep, {}).get("user") == current_user():
+        PUSH.pop(ep, None)
+        save_push()
+    return reply({"ok": True})
+
+
+load_push()
+if not os.getenv("NO_BG"):
+    threading.Thread(target=_bg, daemon=True).start()
+
 
 
 if __name__ == "__main__":

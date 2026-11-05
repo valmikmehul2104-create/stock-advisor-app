@@ -143,6 +143,12 @@ a.news{display:block;color:inherit;text-decoration:none}
 #toast{position:fixed;left:8px;right:8px;top:calc(8px + env(safe-area-inset-top,0px));z-index:70;display:flex;flex-direction:column;gap:6px;max-width:544px;margin:0 auto}
 .tt{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-left:4px solid var(--y);box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:14px}
 .tt.g{border-left-color:var(--g)}.tt.r{border-left-color:var(--r)}
+.tabs2{overflow-x:auto;scrollbar-width:none}.tabs2::-webkit-scrollbar{display:none}
+.tabs2 button{flex:1 0 auto;padding-left:13px;padding-right:13px;font-size:15px}
+.pseg{display:flex;gap:8px;margin:4px 0 12px}
+.pseg button{flex:1;padding:10px 6px;border-radius:12px;border:1px solid var(--bd);background:none;font-size:13px;color:var(--mut);white-space:nowrap}
+.pseg button.on{border-color:var(--tx);color:var(--tx);font-weight:600}
+.legend{font-size:12px;color:var(--mut);margin-top:6px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -194,6 +200,22 @@ a.news{display:block;color:inherit;text-decoration:none}
     </div>
   </section>
 
+  <section class="scr" id="s-pat" hidden>
+    <div class="card">
+      <h2>Chart pattern scanner (breakout / breakdown)</h2>
+      <div class="note" style="margin-bottom:10px">Sirf chart ke pattern par: triangle, wedge, range, double top/bottom, head &amp; shoulders, flag. Jin stocks me breakout ya breakdown hua ya hone wala hai unki alag list.</div>
+      <div class="grid">
+        <div><label>Kahan se dhoondhein</label><select id="psrc"><option value="all">Sab: Large + Mid + Small cap</option><option value="large">Sirf Large cap</option><option value="mid">Sirf Midcap</option><option value="small">Sirf Smallcap</option><option value="wl">Meri active watchlist</option></select></div>
+        <div><label>Har list me kitne</label><select id="pcnt"><option>10</option><option selected>20</option><option>30</option></select></div>
+      </div>
+      <button class="btn" id="pscan" style="margin-top:12px">Pattern scan karo</button>
+      <div id="pst" class="note" style="margin-top:8px"></div>
+    </div>
+    <div class="pseg" id="pseg"></div>
+    <div id="pres"></div>
+    <div class="card" id="pnoti"></div>
+  </section>
+
   <section class="scr" id="s-me" hidden>
     <div class="card" id="mecard"></div>
     <div class="card alrc" id="alr" hidden></div>
@@ -203,6 +225,7 @@ a.news{display:block;color:inherit;text-decoration:none}
     <button id="n-explore" class="on" data-act="nav" data-n="explore"><svg class="i" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>Explore</button>
     <button id="n-watch" data-act="nav" data-n="watch"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Watchlist<span id="wc" hidden></span></button>
     <button id="n-scan" data-act="nav" data-n="scan"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 12l6-6"/></svg>Scanner</button>
+    <button id="n-pat" data-act="nav" data-n="pat"><svg class="i" viewBox="0 0 24 24"><path d="M7 3v18M17 3v18M5 8h4v8H5zM15 6h4v9h-4z"/></svg>Patterns</button>
     <button id="n-me" data-act="nav" data-n="me"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Account</button>
   </div></nav>
 </div>
@@ -218,7 +241,7 @@ a.news{display:block;color:inherit;text-decoration:none}
   <div class="sscroll" id="sscroll">
     <div class="card" style="margin:6px 16px 10px;padding:12px 12px 8px"><h2>Chart (aakhri 6 mahine)</h2><div id="chart"><div class="cph">Chart load ho raha hai...</div></div></div>
     <div id="live"></div>
-    <nav class="tabs2" id="tabs2"><button class="on" data-act="tab" data-t="ov">Overview</button><button data-act="tab" data-t="tc">Technicals</button><button data-act="tab" data-t="nw">News</button><button data-act="tab" data-t="ev">Events</button></nav>
+    <nav class="tabs2" id="tabs2"><button class="on" data-act="tab" data-t="ov">Overview</button><button data-act="tab" data-t="tc">Technicals</button><button data-act="tab" data-t="pt">Patterns</button><button data-act="tab" data-t="nw">News</button><button data-act="tab" data-t="ev">Events</button></nav>
 
     <div class="pane" id="p-ov">
       <div class="ai" id="ai" hidden></div>
@@ -234,6 +257,7 @@ a.news{display:block;color:inherit;text-decoration:none}
       <div class="note">Ye rule-based analysis hai, financial advice nahi. Paise lagane se pehle apna research karein ya advisor se poochein.</div>
     </div>
     <div class="pane" id="p-tc" hidden><div class="card" id="tech"></div></div>
+    <div class="pane" id="p-pt" hidden></div>
     <div class="pane" id="p-nw" hidden></div>
     <div class="pane" id="p-ev" hidden></div>
   </div>
@@ -279,7 +303,7 @@ function loadStore(){
     if(j&&j.lists&&j.lists.length){lists=j.lists;alerts=j.alerts||[];holdings=j.holdings||{};recent=j.recent||[];act=Math.min(j.act||0,lists.length-1);}
   }catch(e){}
 }
-function saveWL(){try{localStorage.setItem(KEY,JSON.stringify({lists,act,alerts,holdings,recent}));}catch(e){}}
+function saveWL(){try{localStorage.setItem(KEY,JSON.stringify({lists,act,alerts,holdings,recent}));}catch(e){}pushSyncSoon();}
 
 function rsi14(c){if(c.length<16)return null;let g=0,l=0;for(let i=1;i<=14;i++){const d=c[i]-c[i-1];d>0?g+=d:l-=d;}g/=14;l/=14;for(let i=15;i<c.length;i++){const d=c[i]-c[i-1];g=(g*13+Math.max(d,0))/14;l=(l*13+Math.max(-d,0))/14;}return l===0?100:100-100/(1+g/l);}
 function indic(){const cs=S.bars.map(z=>z.c);S.rsi=rsi14(cs);if(cs.length>=50)S.dma=cs.slice(-50).reduce((a,v)=>a+v,0)/50;S.tech=techAnalyse(S.bars);}
@@ -382,23 +406,24 @@ function drawToast(){const el=$("toast");el.hidden=!toasts.length;el.innerHTML=t
 function beep(){try{const c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator();o.connect(c.destination);o.frequency.value=880;o.start();setTimeout(()=>{o.stop();c.close();},350);}catch(e){}}
 function fire(m,k){toast(m,k);try{navigator.vibrate&&navigator.vibrate([250,120,250]);}catch(e){}beep();try{if(window.Notification&&Notification.permission==="granted")new Notification("Stock Advisor",{body:m});}catch(e){}}
 function setAlert(id,name,T,price){
-  if(!T)return;const a={id,name,sl:T.sl,t1:T.t1,f:{}};if(price<T.base)a.brk=T.base;
+  if(!T)return;const a={id,name,sl:T.sl,t1:T.t1,f:{}};if(T.dir)a.dir=T.dir;if(T.dir==="dn"?price>T.base:price<T.base)a.brk=T.base;
   alerts=alerts.filter(x=>x.id!==id);alerts.push(a);saveWL();drawAlr();if(S&&S.tech)techC();
   try{if(window.Notification&&Notification.permission==="default")Notification.requestPermission();}catch(e){}
   toast("Alert laga diya: "+name,"y",3500);alertTick();
 }
 function drawAlr(){
   const el=$("alr");if(!alerts.length){el.hidden=true;return;}el.hidden=false;
-  el.innerHTML=`<h2>Meri alerts (page khula ho tab check hoti hain)</h2>`+alerts.map(a=>`<div class="row"><span>${esc(a.name)}<div class="note">${a.brk?"Breakout "+fx(a.brk,0)+(a.f&&a.f.brk?" ✓":"")+" | ":""}SL ${fx(a.sl,0)}${a.f&&a.f.sl?" ✓":""} | T1 ${fx(a.t1,0)}${a.f&&a.f.t1?" ✓":""}</div></span><button class="x" data-act="adel" data-id="${esc(a.id)}">✕</button></div>`).join("");
+  el.innerHTML=`<h2>Meri alerts (page khula ho tab check hoti hain)</h2>`+alerts.map(a=>`<div class="row"><span>${esc(a.name)}<div class="note">${a.brk?(a.dir==="dn"?"Breakdown ":"Breakout ")+fx(a.brk,0)+(a.f&&a.f.brk?" ✓":"")+" | ":""}SL ${fx(a.sl,0)}${a.f&&a.f.sl?" ✓":""} | T1 ${fx(a.t1,0)}${a.f&&a.f.t1?" ✓":""}</div></span><button class="x" data-act="adel" data-id="${esc(a.id)}">✕</button></div>`).join("");
 }
 async function alertTick(){
   if(!alerts.length)return;
   try{
     const r=await api("/api/quote?symbols="+encodeURIComponent(alerts.map(a=>a.id).join(",")));let ch=false;
     alerts.forEach(a=>{const q=r[a.id];if(!q||!q.price)return;const p=q.price;a.f=a.f||{};
-      if(a.brk&&!a.f.brk&&p>=a.brk){a.f.brk=1;ch=true;fire("BREAKOUT: "+a.name+" ne "+fx(a.brk,0)+" cross kiya (abhi "+fx(p,0)+")","g");}
-      if(!a.f.sl&&p<=a.sl){a.f.sl=1;ch=true;fire("STOP-LOSS: "+a.name+" "+fx(a.sl,0)+" ke neeche aa gaya ("+fx(p,0)+")","r");}
-      if(!a.f.t1&&p>=a.t1){a.f.t1=1;ch=true;fire("TARGET: "+a.name+" ne target 1 "+fx(a.t1,0)+" choo liya ("+fx(p,0)+")","g");}});
+      const dn=a.dir==="dn";
+      if(a.brk&&!a.f.brk&&(dn?p<=a.brk:p>=a.brk)){a.f.brk=1;ch=true;fire((dn?"BREAKDOWN: ":"BREAKOUT: ")+a.name+" ne "+fx(a.brk,0)+(dn?" tod diya":" cross kiya")+" (abhi "+fx(p,0)+")",dn?"r":"g");}
+      if(!a.f.sl&&(dn?p>=a.sl:p<=a.sl)){a.f.sl=1;ch=true;fire("STOP-LOSS: "+a.name+" "+fx(a.sl,0)+" ke neeche aa gaya ("+fx(p,0)+")","r");}
+      if(!a.f.t1&&(dn?p<=a.t1:p>=a.t1)){a.f.t1=1;ch=true;fire("TARGET: "+a.name+" ne target 1 "+fx(a.t1,0)+" choo liya ("+fx(p,0)+")","g");}});
     if(ch){saveWL();drawAlr();}
   }catch(e){}
 }
@@ -525,11 +550,11 @@ function applyTheme(t){
 const themeNow=()=>{try{return localStorage.getItem("sa-theme")||"auto";}catch(e){return"auto";}};
 
 /* ---------- main screens ---------- */
-const TITLES={explore:"Explore",watch:"Watchlist",scan:"Scanner",me:"Account"};
+const TITLES={explore:"Explore",watch:"Watchlist",scan:"Scanner",pat:"Chart Patterns",me:"Account"};
 function go(n){
-  ["explore","watch","scan","me"].forEach(s=>{$("s-"+s).hidden=s!==n;$("n-"+s).classList.toggle("on",s===n);});
+  ["explore","watch","scan","pat","me"].forEach(s=>{$("s-"+s).hidden=s!==n;$("n-"+s).classList.toggle("on",s===n);});
   $("mtitle").textContent=TITLES[n];
-  if(n==="explore")loadExplore();else if(n==="watch"){drawWL();wlRefresh();}else if(n==="me")drawMe();else if(n==="scan")drawAlr();
+  if(n==="explore")loadExplore();else if(n==="watch"){drawWL();wlRefresh();}else if(n==="me")drawMe();else if(n==="scan")drawAlr();else if(n==="pat")ptHome();
   window.scrollTo(0,0);
 }
 const liRow=x=>`<div class="li" data-act="open" data-id="${esc(x.id)}" data-name="${esc(x.name)}"><button class="ln">${esc(x.name)}</button><span class="lp"><b>${fx(x.price)}</b><span class="${cl(x.chg)}">${pc(x.chg)}</span></span></div>`;
@@ -584,7 +609,7 @@ async function analyse(x){
   const my=++tok;sugList=[];drawSug();$("q").value="";$("exBody").hidden=false;setSt("");
   S={id:x.id,name:x.name||x.id,ticker:x.id,bars:[],ret:{},rat:null,peers:null};
   recent=[{id:S.id,name:S.name}].concat(recent.filter(r=>r.id!==S.id)).slice(0,8);saveWL();
-  ip=0;setTab("ov");$("sscroll").scrollTop=0;newsC();evC();drawAll();
+  ip=0;$("p-pt").innerHTML="";setTab(x.tab||"ov");$("sscroll").scrollTop=0;newsC();evC();drawAll();
   try{
     const d=await api("/api/stock?symbol="+encodeURIComponent(x.id));if(my!==tok)return;
     Object.assign(S,{name:d.name||S.name,ticker:d.symbol,price:d.price,chg:d.chg,asOf:d.asOf,hi:d.hi,lo:d.lo,dma:d.dma,dma200:d.dma200,
@@ -637,9 +662,9 @@ function drawChart(){$("chart").innerHTML=S.bars.length||S.barErr?chart(calc()):
 
 /* ---------- tabs ---------- */
 function setTab(t){
-  curT=t;["ov","tc","nw","ev"].forEach(k=>{$("p-"+k).hidden=k!==t;});
+  curT=t;["ov","tc","pt","nw","ev"].forEach(k=>{$("p-"+k).hidden=k!==t;});
   document.querySelectorAll("#tabs2 button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
-  if(S){if(t==="nw"&&!S.nws)loadNews();if(t==="ev"&&!S.evs)loadEvents();}
+  if(S){if(t==="nw"&&!S.nws)loadNews();if(t==="ev"&&!S.evs)loadEvents();if(t==="pt")ptLoad();}
   const sc=$("sscroll"),lv=$("live"),ty=lv.offsetTop+lv.offsetHeight;if(sc.scrollTop>ty)sc.scrollTop=ty;
 }
 async function loadNews(){
@@ -890,7 +915,7 @@ function drawMe(){
 }
 
 /* ---------- events ---------- */
-$("wr").onclick=wlRefresh;$("scan").onclick=scan;$("btgo").onclick=runBT;
+$("wr").onclick=wlRefresh;$("scan").onclick=scan;$("pscan").onclick=ptScan;$("btgo").onclick=runBT;
 document.addEventListener("click",e=>{
   const t=e.target.closest("[data-act]");if(!t)return;const a=t.dataset.act,d=t.dataset;
   if(a==="nav")go(d.n);
@@ -919,6 +944,14 @@ document.addEventListener("click",e=>{
   else if(a==="sstar2"){const r=scanOut[+d.i];if(r)openPick(r.id,r.name,"");}
   else if(a==="adel"){alerts=alerts.filter(x=>x.id!==d.id);saveWL();drawAlr();if(S){techC();head();}}
   else if(a==="tdel"){toasts.splice(+d.i,1);drawToast();}
+  else if(a==="ptsec"){ptSec=d.k;ptDraw();}
+  else if(a==="ptopen"){const r=(ptData&&ptData[ptSec]||[])[+d.i];if(r)openStock({id:r.id,name:r.name,tab:"pt"});}
+  else if(a==="ptsalert"){const r=(ptData&&ptData[ptSec]||[])[+d.i];if(r)setAlert(r.id,r.name,{sl:r.P.sl,t1:r.P.t1,base:r.P.level,dir:r.P.dir==="up"?"up":"dn"},r.price);}
+  else if(a==="ptsel"){if(S){S.pi=+d.i;ptC();}}
+  else if(a==="ptalert")ptAlertToggle();
+  else if(a==="pushon")pushOn();
+  else if(a==="pushtest")pushTest();
+  else if(a==="pushoff")pushOff();
   else if(a==="theme"){applyTheme(d.t);drawMe();}
   else if(a==="notif"){try{Notification.requestPermission().then(drawMe);}catch(x){}}
   else if(a==="logout"){fetch("/api/logout",{method:"POST",credentials:"same-origin"}).finally(()=>{location.href="/login";});}
@@ -930,13 +963,179 @@ setInterval(()=>{
 },60000);
 if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
 
+/* ---------- chart patterns: scanner list + candlestick figure ---------- */
+let ptSec="up",ptData=null,ptBusy=false,pushErr="",pst=null;
+const PTS={up:"Breakout ↑",down:"Breakdown ↓",near:"Banne wale"};
+function ptHome(){drawNoti();if(ptData)ptDraw();}
+async function ptScan(){
+  if(ptBusy)return;
+  ptBusy=true;ptData=null;$("pres").innerHTML="";$("pseg").innerHTML="";
+  $("pscan").disabled=true;$("pscan").textContent="Scan chal raha hai...";
+  $("pst").textContent="Scan ho raha hai (pehli baar 1-2 minute lag sakte hain)...";
+  try{
+    const src=$("psrc").value;let url="/api/patterns?n="+(+$("pcnt").value)+"&src="+src;
+    if(src==="wl")url+="&symbols="+encodeURIComponent(lists[act].items.map(i=>i.id).slice(0,50).join(","));
+    ptData=await api(url);
+    if(!ptData.up.length&&ptData.down.length)ptSec="down";
+    ptDraw();
+    $("pst").textContent=ptData.checked+" stocks check hue: "+ptData.up.length+" breakout, "+ptData.down.length+" breakdown, "+ptData.near.length+" banne wale.";
+  }catch(e){$("pst").textContent=errT(e);}
+  ptBusy=false;$("pscan").disabled=false;$("pscan").textContent="Pattern scan karo";
+}
+function ptDraw(){
+  if(!ptData)return;
+  $("pseg").innerHTML=["up","down","near"].map(k=>`<button class="${k===ptSec?"on":""}" data-act="ptsec" data-k="${k}">${PTS[k]} (${ptData[k].length})</button>`).join("");
+  const L=ptData[ptSec],hint=ptSec==="down"?'<div class="note" style="margin-bottom:10px">Breakdown = giravat ka sanket. Naya khareedna avoid karo; holding hai to stop-loss dekho. Short karna sirf F&amp;O me hota hai.</div>':ptSec==="near"?'<div class="note" style="margin-bottom:10px">In me abhi breakout/breakdown hua nahi. Line ke upar/neeche close aane ka intezaar karo.</div>':"";
+  $("pres").innerHTML=hint+(L.length?L.map((r,i)=>ptCard(r,i)).join(""):'<div class="card note">Is list me abhi koi stock nahi mila.</div>');
+}
+function ptPill(P){const up=P.dir==="up";return P.state==="brk"?`<span class="pill ${up?"g":"r"}">${up?"BREAKOUT ↑":"BREAKDOWN ↓"}</span>`:`<span class="pill y">${up?"Breakout":"Breakdown"} ke kareeb</span>`;}
+function ptCard(r,i){
+  const P=r.P,up=P.dir==="up";
+  return `<div class="card"><div class="top"><div><div class="nmx" style="font-size:16px">${esc(r.name)}</div><div class="note">${fx(r.price)} <span class="${cl(r.chg)}">${pc(r.chg)}</span>${r.cap?" | "+esc(r.cap)+" cap":""}</div></div><div style="text-align:right">${ptPill(P)}<div class="note">Score ${P.score}/100</div></div></div>
+  <div style="margin:8px 0 2px"><b>${esc(P.name)}</b>${P.state==="brk"?'<span class="note"> | '+P.k+' din pehle</span>':""}</div>
+  <div class="note" style="margin-bottom:6px">${esc((P.why||[])[0]||"")}</div>
+  <div class="row"><span>${up?"Entry":"Short entry"} / Stop-loss</span><b>${fx(P.entry,0)} / <span class="r">${fx(P.sl,0)}</span></b></div>
+  <div class="row"><span>Target 1 / Target 2</span><b class="g">${fx(P.t1,0)} / ${fx(P.t2,0)}</b></div>
+  <div class="row"><span>Risk : Reward</span><b>1 : ${P.rr.toFixed(1)}${P.vx!=null?" | Volume "+P.vx.toFixed(1)+"x":""}</b></div>
+  <div class="chips" style="margin-top:8px"><button class="chip" data-act="ptopen" data-i="${i}">📈 Chart + analysis</button><button class="chip" data-act="ptsalert" data-i="${i}">🔔 Alert</button></div></div>`;
+}
+
+/* candlestick chart + pattern lines + entry/SL/target figure */
+function ptChart(bs,P,cs){
+  const N=Math.min(80,bs.length);if(N<10)return"";
+  const off=bs.length-N,b=bs.slice(off),W=380,H=320,pl=6,pr=64,pz=P?46:0,pt=14,pb=22,vh=30;
+  const pw=W-pl-pr-pz,cw=pw/N,X=i=>pl+(i-off+.5)*cw;
+  const yAt=(l,i)=>l.b[0]===l.a[0]?l.a[1]:l.a[1]+(l.b[1]-l.a[1])*(i-l.a[0])/(l.b[0]-l.a[0]);
+  let lo=Math.min(...b.map(z=>z.l)),hi=Math.max(...b.map(z=>z.h));
+  if(P)[P.entry,P.sl,P.t1,P.t2].forEach(v=>{lo=Math.min(lo,v);hi=Math.max(hi,v);});
+  const pd=(hi-lo)*.05||1;lo-=pd;hi+=pd;
+  const Y=v=>pt+(hi-v)*(H-pt-pb-vh)/(hi-lo),labs=[];
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Candlestick chart">`;
+  if(P){
+    const x0=pl+pw,e=Y(P.entry),sl=Y(P.sl),t2=Y(P.t2);
+    s+=`<rect x="${x0}" y="${Math.min(e,t2)}" width="${pz}" height="${Math.abs(e-t2)}" fill="var(--g)" opacity=".16"/><rect x="${x0}" y="${Math.min(e,sl)}" width="${pz}" height="${Math.abs(e-sl)}" fill="var(--r)" opacity=".16"/>`;
+    [[P.entry,"Entry","var(--tx)","1 3"],[P.sl,"SL","var(--r)","4 3"],[P.t1,"T1","var(--g)","4 3"],[P.t2,"T2","var(--g)","4 3"]].forEach(z=>{
+      s+=`<line x1="${pl}" x2="${x0+pz}" y1="${Y(z[0])}" y2="${Y(z[0])}" stroke="${z[2]}" stroke-dasharray="${z[3]}" stroke-width="1" opacity=".75"/>`;
+      labs.push({y:Y(z[0]),t:z[1]+" "+Math.round(z[0]),c:z[2]});});
+  }
+  const mV=Math.max(...b.map(z=>z.v||0),1);
+  b.forEach((z,j)=>{if(!z.v)return;const h=z.v/mV*vh;s+=`<rect x="${X(off+j)-cw*.3}" y="${H-pb-h}" width="${cw*.6}" height="${h}" fill="${z.c>=z.o?"var(--g)":"var(--r)"}" opacity=".35"/>`;});
+  b.forEach((z,j)=>{const x=X(off+j),c=z.c>=z.o?"var(--g)":"var(--r)",y1=Y(Math.max(z.o,z.c)),y2=Y(Math.min(z.o,z.c));
+    s+=`<line x1="${x}" x2="${x}" y1="${Y(z.h)}" y2="${Y(z.l)}" stroke="${c}" stroke-width="1"/><rect x="${x-cw*.32}" y="${y1}" width="${cw*.64}" height="${Math.max(.8,y2-y1)}" fill="${c}"/>`;});
+  (cs||[]).filter(c=>c.i>=off).slice(-2).forEach(c=>{const z=bs[c.i];s+=`<rect x="${X(c.i)-cw*.9}" y="${Y(z.h)-3}" width="${cw*1.8}" height="${Y(z.l)-Y(z.h)+6}" fill="none" stroke="var(--y)" stroke-width="1.2" rx="2"/>`;});
+  if(P){
+    P.lines.forEach(l=>{const a=Math.max(l.a[0],off);if(a>=l.b[0])return;
+      s+=`<line x1="${X(a)}" y1="${Y(yAt(l,a))}" x2="${X(l.b[0])}" y2="${Y(yAt(l,l.b[0]))}" stroke="${l.k==="u"?"var(--r)":"var(--g)"}" stroke-width="1.6" stroke-dasharray="6 3"/>`;});
+    (P.pts||[]).forEach(p=>{if(p.i<off)return;const z=bs[p.i],hiPt=Math.abs(p.y-z.h)<Math.abs(p.y-z.l);
+      s+=`<circle cx="${X(p.i)}" cy="${Y(p.y)}" r="2.8" fill="var(--y)"/>`;
+      if(p.t)s+=`<text x="${X(p.i)}" y="${Y(p.y)+(hiPt?-6:14)}" text-anchor="middle" style="fill:var(--y)">${esc(p.t)}</text>`;});
+    if(P.state==="brk"){
+      const bi=bs.length-P.k;
+      if(bi>=off){const z=bs[bi],x=X(bi);
+        if(P.dir==="up")s+=`<polygon points="${x},${Y(z.l)+4} ${x-4.5},${Y(z.l)+12} ${x+4.5},${Y(z.l)+12}" fill="var(--g)"/><text x="${Math.min(x,W-pr-26)}" y="${Y(z.l)+22}" text-anchor="middle" style="fill:var(--g)">Breakout</text>`;
+        else s+=`<polygon points="${x},${Y(z.h)-4} ${x-4.5},${Y(z.h)-12} ${x+4.5},${Y(z.h)-12}" fill="var(--r)"/><text x="${Math.min(x,W-pr-30)}" y="${Y(z.h)-15}" text-anchor="middle" style="fill:var(--r)">Breakdown</text>`;}
+    }
+  }
+  labs.sort((a,c)=>a.y-c.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<11)labs[i].y=labs[i-1].y+11;
+  labs.forEach(l=>{s+=`<text x="${pl+pw+pz+4}" y="${l.y+3}" style="fill:${l.c}">${esc(l.t)}</text>`;});
+  return s+`<text x="${pl}" y="${H-6}">${esc(b[0].d)}</text><text x="${pl+pw}" y="${H-6}" text-anchor="end">${esc(b[b.length-1].d)}</text></svg>`;
+}
+async function ptLoad(){
+  if(!S)return;
+  if(S.pt||S.ptBusy){ptC();return;}
+  const my=tok;S.ptBusy=true;ptC();
+  try{S.pt=await api("/api/pattern?symbol="+encodeURIComponent(S.id));}catch(e){S.pt={error:errT(e)};}
+  if(my!==tok||!S)return;
+  S.ptBusy=false;S.pi=0;ptC();
+}
+function ptCur(){const ps=(S&&S.pt&&S.pt.pats)||[];return ps[Math.min(S.pi||0,ps.length-1)]||null;}
+function ptAlertToggle(){
+  const P=ptCur();if(!P||!S)return;
+  if(alerts.some(x=>x.id===S.id)){alerts=alerts.filter(x=>x.id!==S.id);saveWL();drawAlr();ptC();head();toast("Alert hata diya.","y",3000);return;}
+  const bs=S.pt.bars;setAlert(S.id,S.name,{sl:P.sl,t1:P.t1,base:P.level,dir:P.dir==="up"?"up":"dn"},S.price||bs[bs.length-1].c);ptC();head();
+}
+function ptC(){
+  const el=$("p-pt");if(!S)return;
+  if(S.ptBusy||!S.pt){el.innerHTML='<div class="cph">Chart pattern check ho raha hai...</div>';return;}
+  if(S.pt.error){el.innerHTML='<div class="card note">'+esc(S.pt.error)+'</div>';return;}
+  const d=S.pt,ps=d.pats||[],P=ptCur(),up=P&&P.dir==="up";
+  let h='<div class="card" style="padding:12px 12px 8px"><h2>Candlestick chart + pattern (daily, aakhri 80 din)</h2>'+ptChart(d.bars,P,d.candles)+'<div class="legend">Hari candle = upar band, lal = neeche band. Dashed lal line = upar ki line (resistance), dashed hari line = neeche ki line (support / neckline). Peela dot = pattern ke high/low, peela dabba = khaas candle. Hara dabba = profit zone (Entry se T2), lal dabba = risk zone (Entry se SL). Neeche ke bars = volume.</div></div>';
+  if(ps.length>1)h+='<div class="chips" style="margin-bottom:12px">'+ps.map((p,i)=>`<button class="chip ${p===P?"on":""}" data-act="ptsel" data-i="${i}">${esc(p.name)}${p.dir==="up"?" ↑":" ↓"}</button>`).join("")+"</div>";
+  if(P){
+    const cp=d.bars[d.bars.length-1].c,risk=Math.abs(P.entry-P.sl),when=P.state==="brk"?(Math.abs(cp-P.entry)/P.entry>.02?"Price entry se door nikal chuka hai: pullback par "+fx(P.entry,0)+" ke paas entry dekho, peeche mat bhaago.":"Abhi entry zone me hai (close ke basis par)."):"Pehle close "+fx(P.level,0)+" ke "+(up?"upar":"neeche")+" aane do, phir entry.";
+    h+=`<div class="card"><div class="top"><div><div class="nmx" style="font-size:17px">${esc(P.name)}</div><div class="note">${P.state==="brk"?(P.k+" din se, ")+(up?"upar":"neeche")+" toota":"Abhi bana hua, toota nahi"}</div></div><div style="text-align:right">${ptPill(P)}<div class="note">Score ${P.score}/100 (${esc(P.label)})</div></div></div><div class="note" style="margin-top:8px">${esc(P.desc||"")}</div></div>`;
+    h+=`<div class="card"><h2>Trade plan (figure me dikha raha hai)</h2>
+      <div class="row"><span>Direction</span><b class="${up?"g":"r"}">${up?"Khareedna (Long)":"Giravat (Short / avoid)"}</b></div>
+      <div class="row"><span>Entry</span><b>${fx(P.entry,0)}</b></div>
+      <div class="row"><span>Stop-loss</span><b class="r">${fx(P.sl,0)} (${(risk/P.entry*100).toFixed(1)}%)</b></div>
+      <div class="row"><span>Target 1</span><b class="g">${fx(P.t1,0)} (${(Math.abs(P.t1-P.entry)/P.entry*100).toFixed(1)}%)</b></div>
+      <div class="row"><span>Target 2</span><b class="g">${fx(P.t2,0)} (${(Math.abs(P.t2-P.entry)/P.entry*100).toFixed(1)}%)</b></div>
+      <div class="row"><span>Risk : Reward (T1)</span><b>1 : ${P.rr.toFixed(1)}</b></div>
+      <div class="note" style="margin-top:8px">${esc(when)} Target pattern ki oonchai (measured move) se nikala hai.</div></div>`;
+    h+='<div class="card"><h2>Kyun?</h2><ul>'+P.why.map(w=>"<li>"+esc(w)+"</li>").join("")+"</ul></div>";
+  }else h+='<div class="card note">Abhi is stock me koi saaf chart pattern (breakout/breakdown) nahi bana. Upar sirf candles dikh rahi hain.</div>';
+  if((d.candles||[]).length)h+='<div class="card"><h2>Candlestick signals (aakhri 5 din)</h2>'+d.candles.slice().reverse().map(c=>`<div class="row"><span>${esc(d.bars[c.i].d)}</span><b class="${c.k}" style="max-width:70%">${esc(c.t)}</b></div>`).join("")+"</div>";
+  if(P){const has=alerts.some(x=>x.id===S.id);h+=`<button class="btn" data-act="ptalert" style="margin-bottom:12px">${has?"🔕 Alert hata do":"🔔 Is pattern ka alert lagao (phone notification)"}</button>`;}
+  el.innerHTML=h+'<div class="note">Ye chart-pattern ka rule-based analysis hai, financial advice nahi. Pattern fail bhi hote hain, stop-loss zaroor lagao.</div>';
+}
+
+/* ---------- phone notification (Web Push) ---------- */
+const pushOK=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+function b64u(s){const r=(s+"=".repeat((4-s.length%4)%4)).replace(/-/g,"+").replace(/_/g,"/"),a=atob(r);return Uint8Array.from(a,c=>c.charCodeAt(0));}
+async function apiPost(path,body){
+  let r;try{r=await fetch(path,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});}catch(e){throw new Error("Server se connect nahi ho paya.");}
+  if(r.status===401){location.href="/login";throw new Error("Pehle login karo.");}
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"Server me dikkat aayi.");return j;
+}
+function pushSyncSoon(){if(!pushOK()||Notification.permission!=="granted")return;clearTimeout(pst);pst=setTimeout(pushSync,2000);}
+async function pushSync(){
+  pushErr="";
+  try{
+    if(!pushOK()||Notification.permission!=="granted")return false;
+    const k=await api("/api/push/key");if(!k.key){pushErr=k.error||"Server par notification setup nahi hai.";return false;}
+    const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription(),vk="";
+    try{vk=localStorage.getItem("sa-vk")||"";}catch(e){}
+    if(sub&&vk!==k.key){await sub.unsubscribe();sub=null;}
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(k.key)});
+    try{localStorage.setItem("sa-vk",k.key);}catch(e){}
+    const syms=[...new Set(lists.flatMap(l=>l.items.map(i=>i.id)))].slice(0,40);
+    await apiPost("/api/push/register",{sub:sub.toJSON(),symbols:syms,alerts:alerts.map(a=>({id:a.id,name:a.name,brk:a.f&&a.f.brk?null:a.brk,sl:a.f&&a.f.sl?null:a.sl,t1:a.f&&a.f.t1?null:a.t1,dir:a.dir||"up"}))});
+    return true;
+  }catch(e){pushErr=errT(e);return false;}
+}
+async function drawNoti(){
+  const el=$("pnoti");if(!el)return;let has=false;
+  if(pushOK()&&Notification.permission==="granted"){try{const reg=await navigator.serviceWorker.ready;has=!!(await reg.pushManager.getSubscription());}catch(e){}}
+  let h='<h2>📲 Phone notification</h2>';
+  if(!pushOK())h+='<div class="note">Is browser me notification nahi chalta. Chrome me app ko Home screen par install karke kholo.</div>';
+  else if(Notification.permission==="denied")h+='<div class="note">Notification block hai. Phone Settings &gt; Apps &gt; Chrome (ya Stock Advisor) &gt; Notifications me allow karo, phir yahan aao.</div>';
+  else if(!has)h+='<div class="note" style="margin-bottom:10px">Watchlist ke stocks me naya breakout/breakdown hone par aur aapke lagaye alerts (breakout, stop-loss, target) par phone me notification aayegi, app band ho tab bhi.</div><button class="btn" data-act="pushon">Notification chalu karo</button>'+(pushErr?'<div class="note r" style="margin-top:8px">'+esc(pushErr)+"</div>":"");
+  else h+='<div class="note" style="margin-bottom:10px">✅ Chalu hai. Watchlist ke stocks aur aapke alerts par notification aayegi (market ke samay, har 5-10 minute me check). Watchlist badalne par apne aap update hota hai.</div><div class="chips"><button class="chip" data-act="pushtest">Test notification bhejo</button><button class="chip" data-act="pushoff">Band karo</button></div><div class="note" style="margin-top:8px">Dhyan: free server so jata hai, isliye README me likha free cron (/ping) zaroor lagao, warna app band hone par notification nahi aayegi.</div>';
+  el.innerHTML=h;
+}
+async function pushOn(){
+  if(!pushOK()){drawNoti();return;}
+  let p;try{p=await Notification.requestPermission();}catch(e){p="denied";}
+  if(p!=="granted"){drawNoti();return;}
+  const ok=await pushSync();await drawNoti();
+  toast(ok?"Notification chalu ho gaya.":"Chalu nahi ho paya: "+(pushErr||"dobara try karo"),ok?"g":"r",5000);
+}
+async function pushTest(){try{await pushSync();await apiPost("/api/push/test");toast("Test notification bhej diya, kuch second me aayega.","g",4000);}catch(e){toast(errT(e),"r",5000);}}
+async function pushOff(){
+  try{const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();if(sub){await apiPost("/api/push/off",{endpoint:sub.endpoint}).catch(()=>{});await sub.unsubscribe();}}catch(e){}
+  await drawNoti();toast("Notification band kar diya.","y",3000);
+}
+
+
 async function init(){
   applyTheme(themeNow());
   let me;try{me=await api("/api/me");}catch(e){return;}
   if(!me.user){location.href="/login";return;}
   AUTH=me.auth!==false;USER=me.user;KEY="sa:"+USER.toLowerCase();loadStore();
   $("who").textContent=USER[0].toUpperCase();$("wc").textContent=total()?"("+total()+")":"";
-  go("explore");alertTick();
+  go("explore");alertTick();pushSyncSoon();
+  const q=new URLSearchParams(location.search).get("p");
+  if(q){history.replaceState({},"",location.pathname);openStock({id:q.toUpperCase(),name:q.replace(/\.(NS|BO)$/i,""),tab:"pt"});}
 }
 init();
 </script>
