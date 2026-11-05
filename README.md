@@ -55,6 +55,14 @@ multiple watchlist (har me 50 stocks), breakout scanner (Large + Mid + Small cap
 - **Buy / Sell** asli order nahi lagate, sirf aapka portfolio record hai.
 
 ====================================================================
+## Naye features
+====================================================================
+- **Chart:** purana line chart (buy zone, stop-loss, targets, breakout level, volume).
+- **Teji ya giravat ki vajah:** technical signals, fundamentals, analyst target aur news se "upar le jane wale" aur "niche le jane wale" karan alag-alag.
+- **News tab:** positive aur negative news alag, har headline ke saath "stock upar/niche ja sakta hai". News yfinance aur Google News se aati hai. Sentiment headline ke shabdon se automatic nikalta hai, isliye kabhi galat ho sakta hai.
+- **Kitne time ke liye khareedein:** BTST (1 din), Swing (3-15 din), Short term (1-3 mahine), Long term (1 saal+). Har ek ka score, wajah, entry, stop-loss aur target.
+
+====================================================================
 ## UPDATE kaise karein (baad me kuch badalna ho)
 ====================================================================
 Render GitHub se judaa hai. GitHub me file badli, to Render apne aap naya version chala deta hai (2-3 minute).

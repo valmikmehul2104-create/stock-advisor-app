@@ -467,6 +467,60 @@ def api_chart():
     return reply(d or {"range": rng, "bars": [], "prev": None})
 
 
+_NEWS_WORDS = {
+    # positive
+    "surge": 2.5, "surges": 2.5, "jumps": 2.2, "jump": 2.0, "soars": 2.8, "rallies": 2.2, "rally": 2.0, "upgrade": 2.2,
+    "upgraded": 2.2, "beats": 2.0, "record": 1.5, "bags": 2.0, "wins": 2.0, "dividend": 1.5, "bonus": 1.5,
+    "buyback": 1.8, "profit": 1.5, "growth": 1.5, "gains": 1.8, "expansion": 1.5, "outperform": 2.0, "bullish": 2.2,
+    "breakout": 1.8, "order": 0.8, "orders": 0.8, "strong": 1.8, "rises": 1.8, "climbs": 1.8, "boost": 1.8,
+    # negative
+    "plunges": -3.0, "slumps": -2.8, "tumbles": -2.8, "falls": -2.0, "fall": -1.8, "drops": -2.0, "slips": -1.5,
+    "downgrade": -2.2, "downgraded": -2.2, "misses": -2.0, "probe": -2.0, "fraud": -3.2, "penalty": -2.0,
+    "loss": -2.0, "losses": -2.0, "default": -2.8, "resigns": -1.8, "raid": -2.5, "notice": -1.0, "cuts": -1.5,
+    "weak": -1.8, "slowdown": -2.0, "lawsuit": -2.0, "ban": -2.2, "debt": -0.8, "bearish": -2.2, "sinks": -2.5,
+    "crash": -3.0, "selloff": -2.5, "decline": -1.8, "declines": -1.8, "concern": -1.5, "concerns": -1.5,
+}
+_an = []
+
+
+def analyzer():
+    if not _an:
+        try:
+            from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+            a = SentimentIntensityAnalyzer()
+            a.lexicon.update(_NEWS_WORDS)  # finance ke shabd: surge, plunge, downgrade...
+            _an.append(a)
+        except Exception:
+            _an.append(None)
+    return _an[0]
+
+
+def google_news(q):
+    """Google News (India) ki free RSS: yfinance se zyada Indian stock news milti hai. Na chale to khali list."""
+    import urllib.parse
+    import urllib.request
+    import xml.etree.ElementTree as ET
+    from email.utils import parsedate_to_datetime
+    url = "https://news.google.com/rss/search?q=%s&hl=en-IN&gl=IN&ceid=IN:en" % urllib.parse.quote(q)
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=6) as r:
+        root = ET.fromstring(r.read(600000))
+    out = []
+    for it in list(root.iter("item"))[:20]:
+        title = (it.findtext("title") or "").strip()
+        src = (it.findtext("source") or "").strip()
+        if src and title.endswith(" - " + src):
+            title = title[: -len(src) - 3]
+        link = (it.findtext("link") or "").strip()
+        try:
+            when = parsedate_to_datetime(it.findtext("pubDate")).isoformat()
+        except Exception:
+            when = ""
+        if title and link.startswith(("http://", "https://")):
+            out.append({"title": title, "url": link, "pub": src, "t": when, "sum": ""})
+    return out
+
+
 @app.route("/api/news")
 def api_news():
     sym = request.args.get("symbol", "").strip().upper()
@@ -474,33 +528,47 @@ def api_news():
         return err("Symbol do.")
 
     def build():
+        base = sym.rsplit(".", 1)[0]
+        info = get_info(sym)
+        name = (info.get("longName") or info.get("shortName") or base)
+        for suf in (" Limited", " Ltd.", " Ltd", " LIMITED", " LTD"):
+            name = name.replace(suf, "")
+        name = name.strip() or base
+        items = []
         try:
-            raw = yf.Ticker(sym).news or []
+            for it in (yf.Ticker(sym).news or [])[:20]:
+                c = it.get("content") or it
+                title = c.get("title")
+                if not title:
+                    continue
+                url = ((c.get("canonicalUrl") or {}).get("url") or (c.get("clickThroughUrl") or {}).get("url")
+                       or c.get("link") or "")
+                when = c.get("pubDate") or c.get("displayTime") or ""
+                if not when and it.get("providerPublishTime"):
+                    when = datetime.fromtimestamp(it["providerPublishTime"], timezone.utc).isoformat()
+                items.append({"title": title, "url": url if str(url).startswith(("http://", "https://")) else "",
+                              "pub": (c.get("provider") or {}).get("displayName") or c.get("publisher") or "",
+                              "t": str(when), "sum": (c.get("summary") or "")[:220]})
         except Exception:
-            raw = []
+            pass
         try:
-            from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-            an = SentimentIntensityAnalyzer()
+            items += google_news('"%s" share' % name)
         except Exception:
-            an = None
-        out = []
-        for it in raw[:20]:
-            c = it.get("content") or it
-            title = c.get("title")
-            if not title:
+            pass
+        an = analyzer()
+        key = name.split()[0].lower() if name.split() else base.lower()
+        seen, out = set(), []
+        for n in items:
+            k = n["title"].lower()[:60]
+            if k in seen:
                 continue
-            url = ((c.get("canonicalUrl") or {}).get("url") or (c.get("clickThroughUrl") or {}).get("url")
-                   or c.get("link") or "")
-            if not str(url).startswith(("http://", "https://")):
-                url = ""
-            pub = (c.get("provider") or {}).get("displayName") or c.get("publisher") or ""
-            when = c.get("pubDate") or c.get("displayTime") or ""
-            if not when and it.get("providerPublishTime"):
-                when = datetime.fromtimestamp(it["providerPublishTime"], timezone.utc).isoformat()
-            sc = round(an.polarity_scores(title)["compound"], 2) if an else None
-            out.append({"title": title, "url": url, "pub": pub, "t": str(when), "s": sc,
-                        "sum": (c.get("summary") or "")[:220]})
-        return out
+            seen.add(k)
+            n["s"] = round(an.polarity_scores(n["title"])["compound"], 2) if an else None
+            n["rel"] = key in n["title"].lower() or base.lower() in n["title"].lower()
+            out.append(n)
+        out.sort(key=lambda n: str(n["t"]), reverse=True)
+        out.sort(key=lambda n: not n["rel"])  # stock se seedhe juda pehle (stable sort)
+        return out[:25]
     try:
         return reply(cached("n:" + sym, 600, build))
     except Exception:

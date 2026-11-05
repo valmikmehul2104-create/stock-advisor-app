@@ -57,6 +57,9 @@ ul{margin:6px 0 0;padding-left:18px;font-size:14px}
 .facts span{display:block;color:var(--mut);font-size:11px}
 .rets{display:flex;gap:6px;overflow-x:auto;margin:12px 0}
 .rets div{flex:0 0 auto;border:1px solid var(--bd);border-radius:10px;padding:6px 10px;font-size:12px;text-align:center}
+details.hz{border-top:1px solid var(--bd);padding:10px 0}
+details.hz summary{display:flex;justify-content:space-between;align-items:center;gap:8px;list-style:none;color:var(--tx);font-size:15px}
+details.hz summary::-webkit-details-marker{display:none}
 details{font-size:13px;margin-top:8px}summary{cursor:pointer;color:var(--g)}
 table{width:100%;font-size:13px;border-collapse:collapse}
 td,th{padding:7px 4px;border-bottom:1px solid var(--bd);text-align:right}td:first-child,th:first-child{text-align:left}
@@ -213,20 +216,14 @@ a.news{display:block;color:inherit;text-decoration:none}
     <button class="ib" data-act="gosearch" aria-label="Search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button>
   </div>
   <div class="sscroll" id="sscroll">
-    <div id="chartwrap">
-      <div class="xrow"><div id="xinfo"></div><button class="lvb" id="lvl" data-act="lvl">Levels</button></div>
-      <div class="cbox"><div id="chartbox"><div class="cph">Chart load ho raha hai...</div></div>
-        <button class="fab" data-act="cfs" aria-label="Fullscreen chart"><svg class="i" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div>
-      <div class="ranges" id="ranges">
-        <button class="rg" data-act="range" data-r="1D">1D</button><button class="rg" data-act="range" data-r="1W">1W</button><button class="rg" data-act="range" data-r="1M">1M</button><button class="rg" data-act="range" data-r="3M">3M</button><button class="rg" data-act="range" data-r="6M">6M</button><button class="rg" data-act="range" data-r="1Y">1Y</button><button class="rg" data-act="range" data-r="5Y">5Y</button><button class="rg" data-act="range" data-r="All">All</button>
-        <button class="rg ct" id="ctype" data-act="ctype" aria-label="Candle ya line"><svg class="i" viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-8 4 4"/></svg></button>
-      </div>
-    </div>
+    <div class="card" style="margin:6px 16px 10px;padding:12px 12px 8px"><h2>Chart (aakhri 6 mahine)</h2><div id="chart"><div class="cph">Chart load ho raha hai...</div></div></div>
     <div id="live"></div>
     <nav class="tabs2" id="tabs2"><button class="on" data-act="tab" data-t="ov">Overview</button><button data-act="tab" data-t="tc">Technicals</button><button data-act="tab" data-t="nw">News</button><button data-act="tab" data-t="ev">Events</button></nav>
 
     <div class="pane" id="p-ov">
       <div class="ai" id="ai" hidden></div>
+      <div class="card" id="drv" hidden></div>
+      <div class="card" id="hor" hidden></div>
       <div class="card" id="posc" hidden></div>
       <div class="card" id="ver"></div>
       <div class="card" id="lev"></div>
@@ -516,8 +513,7 @@ const fmtV=v=>v>=1e7?(v/1e7).toFixed(2)+"Cr":v>=1e5?(v/1e5).toFixed(2)+"L":v>=1e
 const chgAbs=(p,c)=>p==null||c==null?null:p-p/(1+c/100);
 const ago=t=>{const d=new Date(t);if(isNaN(d))return"";const m=Math.round((Date.now()-d)/60000);if(m<60)return Math.max(m,1)+" min pehle";if(m<1440)return Math.round(m/60)+" ghante pehle";return Math.round(m/1440)+" din pehle";};
 const TUP='<svg class="i" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>',TDN='<svg class="i" viewBox="0 0 24 24"><path d="M3 7l6 6 4-4 8 8M15 17h6v-6"/></svg>',TFL='<svg class="i" viewBox="0 0 24 24"><path d="M3 12h18M16 7l5 5-5 5"/></svg>';
-let ctype="candle",lvlOn=true,curT="ov",mvKind="gainers",EX=null,ip=0,sto,pk=null,pmsg="",tr=null,ed=null,delc=null,wmsg="";
-try{ctype=localStorage.getItem("sa-ct")==="line"?"line":"candle";lvlOn=localStorage.getItem("sa-lvl")!=="0";}catch(e){}
+let curT="ov",mvKind="gainers",EX=null,ip=0,sto,pk=null,pmsg="",tr=null,ed=null,delc=null,wmsg="";
 
 /* ---------- theme ---------- */
 function applyTheme(t){
@@ -576,7 +572,7 @@ function openStock(x){
   $("stock").hidden=false;document.body.classList.add("lock");
   analyse(x);
 }
-function closeStock(){$("chartwrap").classList.remove("fs");$("stock").hidden=true;document.body.classList.remove("lock");if(!$("s-watch").hidden)drawWL();}
+function closeStock(){$("stock").hidden=true;document.body.classList.remove("lock");if(!$("s-watch").hidden)drawWL();}
 window.addEventListener("popstate",()=>{if(!$("stock").hidden)closeStock();});
 function leaveStock(cb){
   if(history.state&&history.state.s){const h=()=>{removeEventListener("popstate",h);cb&&cb();};addEventListener("popstate",h);history.back();}
@@ -586,17 +582,16 @@ $("sback").onclick=()=>leaveStock();
 
 async function analyse(x){
   const my=++tok;sugList=[];drawSug();$("q").value="";$("exBody").hidden=false;setSt("");
-  S={id:x.id,name:x.name||x.id,ticker:x.id,bars:[],ret:{},rat:null,peers:null,rng:"1D",cbars:[],cprev:null};
+  S={id:x.id,name:x.name||x.id,ticker:x.id,bars:[],ret:{},rat:null,peers:null};
   recent=[{id:S.id,name:S.name}].concat(recent.filter(r=>r.id!==S.id)).slice(0,8);saveWL();
   ip=0;setTab("ov");$("sscroll").scrollTop=0;newsC();evC();drawAll();
-  loadChart(my,"1D");
   try{
     const d=await api("/api/stock?symbol="+encodeURIComponent(x.id));if(my!==tok)return;
     Object.assign(S,{name:d.name||S.name,ticker:d.symbol,price:d.price,chg:d.chg,asOf:d.asOf,hi:d.hi,lo:d.lo,dma:d.dma,dma200:d.dma200,
       sent:d.sentiment,tgt:d.target,mcap:d.mcap,sector:d.sector,industry:d.industry,exch:d.exch,ceo:d.ceo,emp:d.emp,web:d.web,
       desc:d.desc,ret:d.ret||{},rat:d.rat&&d.rat.length?d.rat:null,bars:d.bars||[]});
-    S.upd=null;indic();applyLive();drawAll();loadPeers(my);
-  }catch(e){if(my!==tok)return;S.barErr=errT(e);S.cerr=S.cerr||errT(e);drawAll();}
+    S.upd=null;indic();applyLive();drawAll();loadPeers(my);loadNews();loadEvents();
+  }catch(e){if(my!==tok)return;S.barErr=errT(e);drawAll();}
 }
 async function loadPeers(my){
   try{
@@ -614,67 +609,31 @@ async function liveTick(){
   }catch(e){}
 }
 
-/* ---------- chart ---------- */
-async function loadChart(my,r,quiet){
-  S.rng=r;S.cerr=null;if(!quiet){S.cbars=[];S.cprev=null;}drawChart();
-  try{
-    const d=await api("/api/chart?symbol="+encodeURIComponent(S.id)+"&range="+encodeURIComponent(r));
-    if(my!==tok||S.rng!==r)return;
-    if(r==="1D"&&d.bars.length<3)return loadChart(my,"1M");   // 1D ka data na ho to 1M dikhao
-    S.cbars=d.bars;S.cprev=d.prev;if(!d.bars.length)S.cerr="Is range ka chart data nahi mila.";drawChart();
-  }catch(e){if(my!==tok||S.rng!==r)return;S.cerr=errT(e);drawChart();}
+/* ---------- chart (purana line chart: buy zone, SL, targets, volume) ---------- */
+function chart(A){
+  const b=S.bars;if(b.length<5)return`<div class="note">${esc(S.barErr||"Chart load ho raha hai...")}</div>`;
+  const W=360,H=270,vh=34,pl=6,pr=72,pt=10,pb=22,c=b.map(z=>z.c),buy=(holdings[S.id]||{}).buy;
+  const lv=[];if(A){lv.push({v:A.t2,t:"T2",k:"g"},{v:A.t1,t:"T1",k:"g"},{v:A.sl,t:"SL",k:"r"});}
+  if(buy)lv.push({v:buy,t:"Aapka",k:"a"});
+  if(S.tech&&S.tech.base)lv.push({v:S.tech.base,t:"Brk",k:"y"});
+  const ys=c.concat(lv.map(z=>z.v),A?[A.bz1,A.bz2]:[]);let mn=Math.min(...ys),mx=Math.max(...ys);const pd=(mx-mn)*.06||1;mn-=pd;mx+=pd;
+  const X=i=>pl+i*(W-pl-pr)/(c.length-1),Y=v=>pt+(mx-v)*(H-pt-pb-vh)/(mx-mn),col={g:"var(--g)",r:"var(--r)",a:"var(--ac)",y:"var(--y)"};
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Price chart">`;
+  if(A){s+=`<rect x="${pl}" y="${Y(A.bz2)}" width="${W-pl-pr}" height="${Math.max(2,Y(A.bz1)-Y(A.bz2))}" fill="var(--g)" opacity=".16"/>`;}
+  const labs=[];
+  const vs=b.map(z=>z.v||0),mV=Math.max(...vs,1);
+  b.forEach((z,i)=>{if(!z.v)return;const h=z.v/mV*vh,u=i===0||z.c>=b[i-1].c;s+=`<rect x="${X(i)-1}" y="${H-pb-h}" width="2" height="${h}" fill="${u?"var(--g)":"var(--r)"}" opacity=".5"/>`;});
+  s+=`<text x="${W-pr+4}" y="${H-pb-4}">Volume</text>`;
+  lv.forEach(z=>{s+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(z.v)}" y2="${Y(z.v)}" stroke="${col[z.k]}" stroke-dasharray="${z.k==="a"?"1 3":z.k==="y"?"2 2":"4 3"}" stroke-width="1"/>`;labs.push({y:Y(z.v),t:z.t+" "+Math.round(z.v),k:z.k});});
+  if(A)labs.push({y:(Y(A.bz1)+Y(A.bz2))/2,t:"Buy "+Math.round(A.bz1)+"-"+Math.round(A.bz2),k:"g"});
+  if(c.length>=50){let p="";for(let i=49;i<c.length;i++){const m=c.slice(i-49,i+1).reduce((a,v)=>a+v,0)/50;p+=X(i)+","+Y(m)+" ";}s+=`<polyline points="${p}" fill="none" stroke="var(--y)" stroke-width="1" opacity=".85"/>`;}
+  s+=`<polyline points="${c.map((v,i)=>X(i)+","+Y(v)).join(" ")}" fill="none" stroke="var(--tx)" stroke-width="1.6"/><circle cx="${X(c.length-1)}" cy="${Y(c[c.length-1])}" r="3" fill="var(--tx)"/>`;
+  labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<11)labs[i].y=labs[i-1].y+11;
+  labs.forEach(l=>{s+=`<text x="${W-pr+4}" y="${l.y+3}" style="fill:${col[l.k]}">${esc(l.t)}</text>`;});
+  s+=`<text x="${pl}" y="${H-6}">${esc(b[0].d)}</text><text x="${W-pr}" y="${H-6}" text-anchor="end">${esc(b[b.length-1].d)}</text></svg>`;
+  return s+`<div class="note">Hara band: buy zone. Hare dashed: sell targets. Lal: stop-loss. Peela: 50 din average. Neela dotted: aapka kharid price. Peela dotted Brk: breakout level. Neeche ke bars: volume.</div>`;
 }
-let CH=null;
-function axLab(d){
-  if(S.rng==="1D")return d.slice(11,16);
-  const m=+d.slice(5,7)-1;
-  return S.rng==="5Y"||S.rng==="All"?MON[m]+" '"+d.slice(2,4):(+d.slice(8,10))+" "+MON[m];
-}
-function drawChart(){
-  document.querySelectorAll("#ranges .rg[data-r]").forEach(b=>b.classList.toggle("on",b.dataset.r===S.rng));
-  $("lvl").classList.toggle("on",lvlOn);
-  const el=$("chartbox"),b=S.cbars||[];
-  if(b.length<2){CH=null;el.innerHTML=`<div class="cph">${esc(S.cerr||"Chart load ho raha hai...")}</div>`;$("xinfo").innerHTML="";return;}
-  const fs=$("chartwrap").classList.contains("fs"),W=360,H=fs?Math.max(240,Math.round(W*(innerHeight-150)/innerWidth)):300;
-  const vh=46,pt=16,pb=18,pl=4,pr=4,N=b.length,intra=b[0].d.length>10;
-  let mx=Math.max(...b.map(z=>z.h)),mn=Math.min(...b.map(z=>z.l));
-  if(S.rng==="1D"&&S.cprev){mx=Math.max(mx,S.cprev);mn=Math.min(mn,S.cprev);}
-  const hi=mx,lo=mn,pad=(mx-mn)*.08||mx*.01||1;mx+=pad;mn-=pad;
-  const ph=H-pt-pb-vh-8,step=(W-pl-pr)/N,X=i=>pl+step*(i+.5),Y=v=>pt+(mx-v)*ph/(mx-mn);
-  const first=S.rng==="1D"&&S.cprev?S.cprev:b[0].o,rc=(b[N-1].c/first-1)*100,up=rc>=0,col=up?"var(--g)":"var(--r)";
-  let s=`<svg id="csvg" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Price chart" style="touch-action:pan-y;display:block;user-select:none">`;
-  const mV=Math.max(...b.map(z=>z.v||0),1),bw=Math.max(1,step*.7);
-  b.forEach((z,i)=>{if(!z.v)return;const h=Math.max(1,z.v/mV*vh);s+=`<rect x="${(X(i)-bw/2).toFixed(2)}" y="${(H-pb-h).toFixed(1)}" width="${bw.toFixed(2)}" height="${h.toFixed(1)}" fill="${z.c>=z.o?"var(--g)":"var(--r)"}" opacity=".28"/>`;});
-  if(S.rng==="1D"&&S.cprev)s+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(S.cprev)}" y2="${Y(S.cprev)}" stroke="var(--mut)" stroke-width=".7" stroke-dasharray="3 3"/><text x="${pl+2}" y="${Y(S.cprev)-3}">Prev close ${f0(S.cprev)}</text>`;
-  const T=S.tech;
-  if(lvlOn&&T&&S.rng!=="1D"){
-    [["T2",T.t2,"var(--g)"],["T1",T.t1,"var(--g)"],["Brk",T.base,"var(--y)"],["SL",T.sl,"var(--r)"]].forEach(([t,v,c])=>{
-      if(v>mn&&v<mx)s+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="${c}" stroke-width=".9" stroke-dasharray="4 3"/><text x="${W-pr-2}" y="${Y(v)-3}" text-anchor="end" style="fill:${c}">${t} ${Math.round(v)}</text>`;});
-  }
-  if(ctype==="line"){
-    const pts=b.map((z,i)=>X(i).toFixed(1)+","+Y(z.c).toFixed(1)).join(" ");
-    s+=`<polygon points="${X(0).toFixed(1)},${pt+ph} ${pts} ${X(N-1).toFixed(1)},${pt+ph}" fill="${col}" opacity=".08"/><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.7" stroke-linejoin="round"/>`;
-  }else{
-    b.forEach((z,i)=>{const c=z.c>=z.o?"var(--g)":"var(--r)",x=X(i),y1=Y(Math.max(z.o,z.c)),y2=Y(Math.min(z.o,z.c));
-      s+=`<line x1="${x.toFixed(2)}" x2="${x.toFixed(2)}" y1="${Y(z.h).toFixed(1)}" y2="${Y(z.l).toFixed(1)}" stroke="${c}" stroke-width=".8"/><rect x="${(x-bw/2).toFixed(2)}" y="${y1.toFixed(1)}" width="${bw.toFixed(2)}" height="${Math.max(1,y2-y1).toFixed(1)}" fill="${c}"/>`;});
-  }
-  const iH=b.findIndex(z=>z.h===hi),iL=b.findIndex(z=>z.l===lo),tx=i=>Math.min(W-26,Math.max(26,X(i)));
-  s+=`<text x="${tx(iH)}" y="${Math.max(9,Y(hi)-3)}" text-anchor="middle">${f0(hi)}</text><text x="${tx(iL)}" y="${Y(lo)+10}" text-anchor="middle">${f0(lo)}</text>`;
-  s+=`<text x="${pl}" y="${H-4}">${esc(axLab(b[0].d))}</text><text x="${W/2}" y="${H-4}" text-anchor="middle">${esc(axLab(b[Math.floor(N/2)].d))}</text><text x="${W-pr}" y="${H-4}" text-anchor="end">${esc(axLab(b[N-1].d))}</text>`;
-  s+=`<g id="xh" style="display:none"><line id="xl" y1="${pt}" y2="${H-pb}" stroke="var(--mut)" stroke-width=".8" stroke-dasharray="2 2"/><circle id="xc" r="3.5" fill="${col}" stroke="var(--bg)" stroke-width="1.5"/></g></svg>`;
-  el.innerHTML=s;
-  const def=`<b class="${cl(rc)}">${pc(rc)}</b> <span class="note">${S.rng==="1D"?"pichhle close se":S.rng+" me"}</span>`;
-  $("xinfo").innerHTML=def;CH={b,W,pl,step,X,Y,intra,def};
-}
-function xhMove(e){
-  const svg=$("csvg");if(!CH||!svg)return;const r=svg.getBoundingClientRect();
-  let i=Math.floor(((e.clientX-r.left)/r.width*CH.W-CH.pl)/CH.step);i=Math.max(0,Math.min(CH.b.length-1,i));
-  const z=CH.b[i],x=CH.X(i);$("xh").style.display="";
-  $("xl").setAttribute("x1",x);$("xl").setAttribute("x2",x);$("xc").setAttribute("cx",x);$("xc").setAttribute("cy",CH.Y(z.c));
-  $("xinfo").innerHTML=`<span class="note">${esc(CH.intra?z.d.slice(5,16).replace("-","/"):z.d)}</span> O ${f0(z.o)} H ${f0(z.h)} L ${f0(z.l)} C <b>${f0(z.c)}</b>`;
-}
-function xhEnd(){if(!CH)return;const g=$("xh");if(g)g.style.display="none";$("xinfo").innerHTML=CH.def;}
-{const cb=$("chartbox");cb.addEventListener("pointermove",xhMove);cb.addEventListener("pointerdown",xhMove);["pointerleave","pointerup","pointercancel"].forEach(t=>cb.addEventListener(t,xhEnd));}
+function drawChart(){$("chart").innerHTML=S.bars.length||S.barErr?chart(calc()):'<div class="cph">Chart load ho raha hai...</div>';}
 
 /* ---------- tabs ---------- */
 function setTab(t){
@@ -687,26 +646,28 @@ async function loadNews(){
   const my=tok;S.nws="load";newsC();
   try{const r=await api("/api/news?symbol="+encodeURIComponent(S.id));if(my!==tok)return;S.news=r;S.nws="ok";}
   catch(e){if(my!==tok)return;S.nws="err";S.nerr=errT(e);}
-  newsC();
+  newsC();drawAll();
 }
 function newsC(){
   const el=$("p-nw");if(!S||!S.nws){el.innerHTML="";return;}
-  if(S.nws==="load")el.innerHTML=`<div class="note">News la raha hu...</div>`;
-  else if(S.nws==="err")el.innerHTML=`<div class="card note">${esc(S.nerr)}</div>`;
-  else if(!S.news.length)el.innerHTML=`<div class="card note">Is stock ki koi taazi news nahi mili.</div>`;
-  else{
-    const sm=S.sent,kk=v=>v==null?"":v>=.2?"g":v<=-.2?"r":"y",lb=v=>v==null?"":v>=.2?"Positive":v<=-.2?"Negative":"Neutral";
-    el.innerHTML=(sm!=null?`<div class="card"><div class="note">Headlines ka overall mood</div><div class="vd ${kk(sm)}" style="font-size:20px">${lb(sm)} (${sm})</div></div>`:"")
-     +S.news.map(n=>{
-       const inner=`<div class="nt">${esc(n.title)}</div>${n.sum?`<div class="note" style="margin-top:4px">${esc(n.sum)}</div>`:""}<div class="note" style="margin-top:6px">${esc(n.pub)}${n.t?" · "+esc(ago(n.t)):""} ${n.s!=null?`<span class="pill ${kk(n.s)}">${lb(n.s)}</span>`:""}</div>`;
-       return /^https?:\/\//.test(n.url)?`<a class="card news" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`:`<div class="card news">${inner}</div>`;}).join("");
-  }
+  if(S.nws==="load"){el.innerHTML=`<div class="note">News la raha hu...</div>`;return;}
+  if(S.nws==="err"){el.innerHTML=`<div class="card note">${esc(S.nerr)}</div>`;return;}
+  if(!S.news.length){el.innerHTML=`<div class="card note">Is stock ki koi taazi news nahi mili.</div>`;return;}
+  const card=(n,k)=>{
+    const inner=`<div class="nt">${esc(n.title)}</div>${n.sum?`<div class="note" style="margin-top:4px">${esc(n.sum)}</div>`:""}<div class="note" style="margin-top:6px">${esc(n.pub)}${n.t?" · "+esc(ago(n.t)):""} ${k==="g"?`<span class="pill g">Stock upar ja sakta hai</span>`:k==="r"?`<span class="pill r">Stock niche ja sakta hai</span>`:""}${n.rel?"":` <span class="pill">Market/sector news</span>`}</div>`;
+    return /^https?:\/\//.test(n.url)?`<a class="card news" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`:`<div class="card news">${inner}</div>`;};
+  const P=S.news.filter(nPos),N=S.news.filter(nNeg),Z=S.news.filter(n=>!nPos(n)&&!nNeg(n)),net=P.length-N.length;
+  const mood=net>=2?{t:"Positive",k:"g"}:net<=-2?{t:"Negative",k:"r"}:{t:"Mixed / neutral",k:"y"};
+  const sec=(t,k,L)=>L.length?`<h3 class="${k}" style="margin:16px 0 8px;font-size:14px">${t} (${L.length})</h3>`+L.map(n=>card(n,k)).join(""):"";
+  el.innerHTML=`<div class="card"><div class="note">Headlines ka overall asar</div><div class="vd ${mood.k}" style="font-size:20px">${mood.t}</div><div class="note"><b class="g">${P.length}</b> positive · <b class="r">${N.length}</b> negative · ${Z.length} neutral</div></div>`
+   +sec("▲ Positive news: stock ko upar le ja sakti hain","g",P)+sec("▼ Negative news: stock ko niche le ja sakti hain","r",N)+sec("Neutral news","",Z)
+   +`<div class="note" style="margin-top:10px">Headline ke shabdon se automatic andaza hai, isliye kabhi galat bhi ho sakta hai. Poori khabar padhkar hi decide karo.</div>`;
 }
 async function loadEvents(){
   const my=tok;S.evs="load";evC();
   try{const r=await api("/api/events?symbol="+encodeURIComponent(S.id));if(my!==tok)return;S.ev=r;S.evs="ok";}
   catch(e){if(my!==tok)return;S.evs="err";S.eerr=errT(e);}
-  evC();
+  evC();drawAll();
 }
 function evC(){
   const el=$("p-ev");if(!S||!S.evs){el.innerHTML="";return;}
@@ -747,6 +708,100 @@ function posC(){
    +`<div class="note" style="margin-top:6px">Ye sirf aapka record hai, asli order nahi lagta.</div>`;
 }
 
+/* ---------- vajah: stock upar ya niche kyun ja sakta hai ---------- */
+const nPos=n=>n.s!=null&&n.s>=.15,nNeg=n=>n.s!=null&&n.s<=-.15;
+function rtv(k){const r=(S.rat||[]).find(x=>x[0]===k);return r?num(r[1]):null;}
+function drivers(){
+  const T=S.tech,up=[],dn=[],add=(k,src,t,x)=>(k==="g"?up:dn).push(Object.assign({src,t},x||{}));
+  if(T){T.sig.forEach(x=>{if(x.k==="g"||x.k==="r")add(x.k,"Technical",x.t);});T.pat.forEach(x=>{if(x.k==="g"||x.k==="r")add(x.k,"Pattern",x.t);});}
+  const roe=rtv("ROE"),nm=rtv("Net margin"),pe=rtv("P/E"),de=rtv("Debt to Equity");
+  if(roe!=null){if(roe>=15)add("g","Fundamental","ROE "+roe+"%: company paise ka achha use kar rahi hai");else if(roe<8)add("r","Fundamental","ROE sirf "+roe+"%: kamzor return");}
+  if(nm!=null){if(nm>=10)add("g","Fundamental","Net margin "+nm+"%: achha munafa");else if(nm<3)add("r","Fundamental","Net margin sirf "+nm+"%: patla munafa");}
+  if(de!=null&&de>150)add("r","Fundamental","Debt/Equity "+de+": karz zyada hai");
+  if(pe!=null){if(pe>50)add("r","Fundamental","P/E "+pe+": kaafi mehenga, ummeed pehle se price me hai");else if(pe>0&&pe<20)add("g","Fundamental","P/E "+pe+": valuation reasonable");}
+  if(S.tgt&&S.price){const u=(S.tgt-S.price)/S.price*100;if(u>=10)add("g","Analyst","Analysts ka average target "+fx(S.tgt,0)+" ("+pc(u)+" upar)");else if(u<=-5)add("r","Analyst","Price analyst target "+fx(S.tgt,0)+" se upar chal raha hai");}
+  if(S.hi&&S.lo&&S.hi>S.lo&&S.price){const p=(S.price-S.lo)/(S.hi-S.lo);if(p>.92)add("r","Price","52 hafte ke high ke paas: profit booking ka risk");}
+  const news=(S.nws==="ok"?S.news:[]),rel=news.filter(n=>n.rel),pool=rel.length>=3?rel:news;
+  pool.filter(nPos).sort((a,b)=>b.s-a.s).slice(0,3).forEach(n=>add("g","News",n.title,{url:n.url,when:n.t,pub:n.pub}));
+  pool.filter(nNeg).sort((a,b)=>a.s-b.s).slice(0,3).forEach(n=>add("r","News",n.title,{url:n.url,when:n.t,pub:n.pub}));
+  const net=up.length-dn.length;
+  return{up,dn,net,out:net>=3?{t:"Upar ka jhukav",k:"g"}:net<=-3?{t:"Niche ka jhukav",k:"r"}:{t:"Mixed, saaf nahi",k:"y"}};
+}
+function drvC(){
+  const el=$("drv");if(!S||!S.price){el.hidden=true;return;}el.hidden=false;
+  const D=drivers(),row=x=>{const lnk=/^https?:\/\//.test(x.url||"");
+    return`<div class="row" style="align-items:flex-start"><span>${lnk?`<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer" style="color:inherit">${esc(x.t)}</a>`:esc(x.t)}${x.when?`<div class="note">${esc(x.pub||"")} · ${esc(ago(x.when))}</div>`:""}</span><span class="pill">${esc(x.src)}</span></div>`;};
+  const ev=S.ev&&S.ev.upcoming?S.ev.upcoming.filter(u=>/earn|result/i.test(u.label)):[];
+  el.innerHTML=`<h2>Teji ya giravat ki vajah</h2><div class="top"><div class="vd ${D.out.k}" style="font-size:22px;margin:0">${D.out.t}</div><div class="note"><b class="g">${D.up.length}</b> upar · <b class="r">${D.dn.length}</b> niche</div></div>`
+   +`<h2 style="margin-top:14px;color:var(--g)">▲ Upar le jane wale karan</h2>`+(D.up.length?D.up.map(row).join(""):`<div class="note">Abhi koi khaas positive karan nahi mila.</div>`)
+   +`<h2 style="margin-top:14px;color:var(--r)">▼ Niche le jane wale karan</h2>`+(D.dn.length?D.dn.map(row).join(""):`<div class="note">Abhi koi khaas negative karan nahi mila.</div>`)
+   +(ev.length?`<div class="note" style="margin-top:10px">Dhyan do: ${esc(ev[0].label)} <b>${esc(ev[0].d)}</b>. Result ke aas-paas bada move (upar ya niche) aa sakta hai.</div>`:"")
+   +(S.nws==="load"?`<div class="note" style="margin-top:10px">News check ho rahi hai...</div>`:"")
+   +`<div class="note" style="margin-top:10px">Ye signals aur headlines ka hisaab hai, guarantee nahi. News ka asar aksar short-term hota hai.</div>`;
+}
+
+/* ---------- kitne time ke liye khareedein: BTST / Swing / Short term / Long term ---------- */
+function horizons(A){
+  const T=S.tech;if(!T||!S.bars.length)return null;
+  const b=S.bars,L=b[b.length-1],cur=S.price||L.c,atr=T.atr,dayPos=L.h>L.l?(L.c-L.l)/(L.h-L.l):.5,volx=T.volX||0,rsi=S.rsi;
+  const r3=S.ret["3 Mahine"],r1y=S.ret["1 Saal"],H=[];
+  const mk=(id,name,span,pts,max,crit,plan)=>{const sc=Math.round(pts/max*100);return{id,name,span,sc,v:sc>=70?{t:"Suitable",k:"g"}:sc>=50?{t:"Wait / risky",k:"y"}:{t:"Abhi nahi",k:"r"},crit,plan};};
+  // BTST: aaj kharido, kal subah nikalo
+  {let p=0;const c=[];const t=(ok,pts,yes,no)=>{if(ok)p+=pts;c.push({ok,t:ok?yes:no});};
+   t(dayPos>=.75,25,"Aaj ka close din ke high ke paas ("+Math.round(dayPos*100)+"%)","Close din ke high se door ("+Math.round(dayPos*100)+"%): raat bhar ka risk");
+   t(volx>=1.5,20,"Volume "+volx.toFixed(1)+"x: achhi bhaagidari","Volume "+volx.toFixed(1)+"x: kamzor confirmation");
+   t(S.chg>=.5&&S.chg<=5,15,"Aaj "+pc(S.chg)+": strong par bekaabu nahi","Aaj ka move "+pc(S.chg)+(S.chg>5?": bahut tez, gap-down ka risk":": momentum nahi"));
+   t(T.state==="brk"||T.state==="near",20,"Breakout/level ke paas","Breakout setup nahi");
+   t(rsi!=null&&rsi>50&&rsi<75,10,"RSI "+(rsi||0).toFixed(0)+": theek zone","RSI "+(rsi!=null?rsi.toFixed(0):"-")+": momentum ya overheat issue");
+   t(cur>T.e20,10,"Price 20 EMA ke upar","Price 20 EMA ke neeche");
+   const sl=Math.min(cur-.5*atr,Math.max(L.l*.998,cur-1.2*atr));
+   H.push(mk("btst","BTST","1 din (aaj kharido, kal nikalo)",p,100,c,{entry:cur,sl,t1:cur+.8*atr,t2:cur+1.5*atr,tip:"Market band hone se pehle (3:00-3:25 PM) kharido, agle din 9:15-10:30 ke beech nikal jao. Kal gap-down aaye to SL par turant bahar."}));}
+  // Swing: 3-15 din
+  {const c=T.sig.filter(x=>x.k!=="y").slice(0,5).map(x=>({ok:x.k==="g",t:x.t}));
+   const p=T.state==="bd"?Math.min(T.score,35):T.score;
+   H.push(mk("swing","Swing","3 se 15 din",p,100,c,{entry:T.state==="near"?T.base:cur,sl:T.sl,t1:T.t1,t2:T.t2,entryNote:T.state==="near"?"Breakout level ke upar close par entry":"",tip:"Target 1 par aadha bech do aur baaki ka stop-loss entry price par le aao."}));}
+  // Short term: 1-3 mahine
+  {let p=0;const c=[];const t=(ok,pts,yes,no)=>{if(ok)p+=pts;c.push({ok,t:ok?yes:no});};
+   t(S.dma!=null&&cur>S.dma,20,"Price 50 din ke average ke upar","Price 50 din ke average ke neeche");
+   t(T.e20>T.e50,15,"20 EMA > 50 EMA (trend majboot)","20 EMA 50 EMA ke neeche (trend kamzor)");
+   t(r3!=null&&r3>0,15,"3 mahine me "+pc(r3),"3 mahine me "+pc(r3)+": momentum nahi");
+   t(rsi!=null&&rsi>=45&&rsi<=72,10,"RSI "+(rsi||0).toFixed(0)+": theek zone","RSI "+(rsi!=null?rsi.toFixed(0):"-")+": ya to kamzor ya overheated");
+   t(T.ext<8&&S.hi&&cur>=S.hi*.85,15,"52 hafte ke high ke kareeb, late entry nahi","High se door ya breakout ke baad bahut bhaag chuka");
+   t(T.state!=="bd",15,"Breakdown nahi hua","20 din ke low ke neeche gaya (breakdown)");
+   t(S.sent==null||S.sent>=-.2,10,"News mood theek"+(S.sent!=null?" ("+S.sent+")":""),"News mood negative ("+S.sent+")");
+   const sl=Math.min(T.sl,T.e50*.98);
+   H.push(mk("short","Short term","1 se 3 mahine",p,100,c,{entry:cur,sl,t1:Math.max(T.t1,cur*1.07),t2:Math.max(T.t2,cur*1.12),tip:"Price 20 EMA ("+fx(T.e20,0)+") tak girne par thoda thoda kharidna behtar rehta hai. 50 EMA ke neeche close aaye to nikal jao."}));}
+  // Long term: 1 saal+
+  {let p=0,mx=0;const c=[];const t=(has,ok,pts,yes,no)=>{if(!has)return;mx+=pts;if(ok)p+=pts;c.push({ok,t:ok?yes:no});};
+   const roe=rtv("ROE"),nm=rtv("Net margin"),de=rtv("Debt to Equity"),pe=rtv("P/E"),up=S.tgt?(S.tgt-cur)/cur*100:null;
+   t(roe!=null,roe>=15,20,"ROE "+roe+"%: achha","ROE "+roe+"%: 15% se kam");
+   t(nm!=null,nm>=10,15,"Net margin "+nm+"%: achha","Net margin "+nm+"%: kam");
+   t(de!=null,de<=100,15,"Debt/Equity "+de+": control me","Debt/Equity "+de+": zyada karz");
+   t(pe!=null,pe>0&&pe<=35,15,"P/E "+pe+": reasonable","P/E "+pe+": mehenga ya loss me");
+   t(S.dma200!=null,cur>S.dma200,15,"Price 200 din ke average ke upar (long trend achha)","Price 200 din ke average ke neeche");
+   t(up!=null,up>=10,10,"Analyst target "+pc(up)+" upar","Analyst target se zyada upside nahi");
+   t(r1y!=null,r1y>0&&r1y<150,10,"1 saal me "+pc(r1y),"1 saal ka return "+pc(r1y));
+   const sc=mx?p/mx*100:0,low=mx<40;
+   const base=S.dma200||cur*.85;
+   const o=mk("long","Long term","1 saal ya zyada",sc,100,c,{entry:cur,entryNote:"Ek saath nahi, 3-4 hisson me kharido",sl:base*.95,t1:S.tgt&&S.tgt>cur*1.1?S.tgt:cur*1.3,t2:cur*1.6,tip:"Quarterly result aur company ki debt par nazar rakho. Fundamentals bigadne par hi nikalo, chhote utaar-chadhav par nahi."});
+   if(low){o.v={t:"Data kam",k:"y"};o.crit.push({ok:false,t:"Fundamental data kam mila, isliye pakka nahi keh sakte"});}
+   H.push(o);}
+  const best=H.filter(h=>h.v.t==="Suitable").sort((a,b)=>b.sc-a.sc)[0]||null;
+  return{H,best};
+}
+function horC(A){
+  const el=$("hor"),R=S.price?horizons(A):null;if(!R){el.hidden=true;return;}el.hidden=false;
+  const pl=(l,v,k)=>`<div class="row"><span>${l}</span><b class="${k||""}">${v}</b></div>`;
+  el.innerHTML=`<h2>Kitne time ke liye khareedein?</h2>`
+   +(R.best?`<div class="vd g" style="font-size:19px;margin-bottom:2px">Sabse suitable: ${esc(R.best.name)}</div><div class="note" style="margin-bottom:10px">${esc(R.best.span)} ke liye setup behtar hai.</div>`
+     :`<div class="vd y" style="font-size:19px;margin-bottom:2px">Abhi kisi time-frame me clear entry nahi</div><div class="note" style="margin-bottom:10px">Wait karo ya Plan/Technicals dekho.</div>`)
+   +R.H.map(h=>{const p=h.plan;
+     return`<details${R.best&&R.best.id===h.id?" open":""} class="hz"><summary><span><b>${esc(h.name)}</b> <span class="note">${esc(h.span)}</span></span><span class="pill ${h.v.k}">${esc(h.v.t)} · ${h.sc}</span></summary>`
+      +h.crit.map(c=>`<div class="row"><span>${esc(c.t)}</span><b class="${c.ok?"g":"r"}">${c.ok?"✔":"✖"}</b></div>`).join("")
+      +`<div style="margin-top:8px">`+pl("Entry",fx(p.entry,0)+(p.entryNote?"":""))+(p.entryNote?`<div class="note" style="text-align:right">${esc(p.entryNote)}</div>`:"")+pl("Stop-loss",fx(p.sl,0),"r")+pl("Target 1",fx(p.t1,0),"g")+pl("Target 2",fx(p.t2,0),"g")+`</div><div class="note" style="margin-top:6px">${esc(p.tip)}</div></details>`;}).join("")
+   +`<div class="note" style="margin-top:10px">Score 70+ = suitable. Ye rule-based andaza hai, guarantee nahi. Stop-loss zaroor lagao.</div>`;
+}
+
 /* ---------- stock screen draw ---------- */
 function head(){
   $("sname").textContent=S.name;const ab=chgAbs(S.price,S.chg);
@@ -756,7 +811,7 @@ function head(){
 }
 function drawAll(){
   if(!S)return;const A=calc();
-  head();drawChart();ai(A);posC();ver(A);lev(A);whyC(A);techC();info();ratC();peerC();
+  head();drawChart();ai(A);drvC();horC(A);posC();ver(A);lev(A);whyC(A);techC();info();ratC();peerC();
 }
 
 /* ---------- buy / sell record sheet + watchlist pick sheet ---------- */
@@ -844,13 +899,9 @@ document.addEventListener("click",e=>{
   else if(a==="sstar")openPick(d.id,d.name,"");
   else if(a==="star")openPick(S.id,S.name,S.ticker);
   else if(a==="gosearch")leaveStock(()=>{go("explore");$("q").focus();});
-  else if(a==="range"){if(S)loadChart(tok,d.r);}
-  else if(a==="ctype"){ctype=ctype==="candle"?"line":"candle";try{localStorage.setItem("sa-ct",ctype);}catch(x){}drawChart();}
-  else if(a==="lvl"){lvlOn=!lvlOn;try{localStorage.setItem("sa-lvl",lvlOn?"1":"0");}catch(x){}drawChart();}
-  else if(a==="cfs"){$("chartwrap").classList.toggle("fs");drawChart();}
   else if(a==="tab")setTab(d.t);
   else if(a==="ip"){ip+=+d.d;ai(calc());}
-  else if(a==="refresh"){e.preventDefault();liveTick();if(S)loadChart(tok,S.rng,true);}
+  else if(a==="refresh"){e.preventDefault();liveTick();}
   else if(a==="trade")openTrade(d.side);
   else if(a==="tgo")doTrade();
   else if(a==="sclose")closeSheet();
@@ -874,7 +925,7 @@ document.addEventListener("click",e=>{
 });
 setInterval(()=>{
   if(document.hidden||!marketOpen())return;alertTick();
-  if(!$("stock").hidden&&S&&S.price){liveTick();if(S.rng==="1D")loadChart(tok,"1D",true);}
+  if(!$("stock").hidden&&S&&S.price){liveTick();}
   else if(!$("s-watch").hidden)wlRefresh();
 },60000);
 if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
