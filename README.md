@@ -1,3 +1,24 @@
+# v6: Chart pattern ka poora engine (Day / Week / Month)
+
+**Kya naya hai (sirf `patterns.py`, `app.py`, `index.html`, `requirements.txt` badle hain):**
+- **28 chart pattern**: Ascending/Descending/Symmetrical triangle, Rectangle, Rising/Falling wedge, Ascending/Descending channel,
+  Broadening (megaphone), Double top/bottom, Triple top/bottom, Head & shoulders (+inverse), Rounding bottom/top,
+  Cup & handle, Bull/Bear flag, Bull/Bear pennant, Diamond top/bottom, V-top/V-bottom, Island reversal (top/bottom).
+- **Candlestick aur gap**: Doji (4 tarah), Hammer, Hanging man, Inverted hammer, Shooting star, Marubozu, Spinning top, Engulfing,
+  Harami (+cross), Piercing line, Dark cloud cover, Tweezer top/bottom, Kicker, Morning/Evening star, Abandoned baby,
+  Three white soldiers, Three black crows, Three inside/outside up-down, Rising/Falling three methods, Inside/Outside bar,
+  aur Gap (breakaway, runaway, exhaustion, common).
+- **Timeframe**: har stock ke pattern **Day, Week aur Month** teeno chart par alag dikhte hain. Patterns tab me Day/Week/Month buttons hain
+  aur ek list batati hai ki kaunsa pattern kis timeframe me ban raha hai.
+- **Lines chart par**: upar/neeche ki trendline, neckline, cup ka curve, diamond ke chaaron kinare, island ka dabba, pole, pivot points (1,2,3 / LS-H-RS).
+- **"Ban raha hai"** (forming) halat: jo pattern abhi complete nahi hua wo bhi dikhta hai (kam score ke saath).
+- **Pattern scanner** me Timeframe (Day/Week/Month) ka option aur 4 lists: Breakout, Breakdown, Banne wale, Ban raha hai.
+
+**Update kaise karein:** GitHub repo me **Add file > Upload files** se `patterns.py`, `app.py`, `index.html`, `requirements.txt`
+(same naam se) upload karke Commit karo. Render 2-3 minute me khud update kar dega.
+
+---
+
 # Stock Advisor: phone par icon wala app (Yahoo Finance data, koi limit nahi)
 
 **Naya:** Groww jaisa interface (candle chart, 1D-All range, Overview / Technicals / News / Events, Buy-Sell bar, bottom menu) aur (chahe to) username + password login.

@@ -152,12 +152,12 @@ def to_bars(df, project=False):
     return bars
 
 
-def frames(symbols, period="6mo"):
+def frames(symbols, period="6mo", interval="1d"):
     out = {}
     for i in range(0, len(symbols), 60):
         chunk = symbols[i:i + 60]
         try:
-            data = yf.download(chunk, period=period, interval="1d", group_by="ticker",
+            data = yf.download(chunk, period=period, interval=interval, group_by="ticker",
                                auto_adjust=False, threads=True, progress=False)
         except Exception:
             continue
@@ -664,9 +664,19 @@ def api_backtest():
 
 
 # ---------------------------------------------------------------- chart patterns
+# Timeframe: Day / Week / Month. (yfinance period, interval, kitne candle rakhne hain)
+TFS = {"D": ("1y", "1d", 160), "W": ("5y", "1wk", 160), "M": ("max", "1mo", 120)}
+TF_NAME = {"D": "Day", "W": "Week", "M": "Month"}
+TF_LIQ = {"D": 1.0, "W": 5.0, "M": 21.0}  # weekly/monthly volume ko roz ke hisaab me badalne ke liye
+
+
 @app.route("/api/patterns")
 def api_patterns():
     src = request.args.get("src", "nse")
+    tf = request.args.get("tf", "D").upper()
+    if tf not in TFS:
+        return err("Timeframe sahi nahi hai (D, W ya M).")
+    forming = request.args.get("forming", "0") == "1"
     n = max(1, min(int(request.args.get("n", "20") or 20), 50))
     if src == "wl":
         syms = [s.strip().upper() for s in request.args.get("symbols", "").split(",") if s.strip()][:50]
@@ -676,16 +686,21 @@ def api_patterns():
         syms = [s for s in UNIVERSE if src in ("all", "nse") or CAP.get(s) == src]
         if not syms:
             return err("Ye option sahi nahi hai.")
-    key = "scan:" + (",".join(syms) if src == "wl" else src)  # breakout scanner ke saath data share hota hai
+    base = "scan:" + (",".join(syms) if src == "wl" else src)  # daily breakout scanner ke saath data share hota hai
     try:
-        fr = cached(key, 300, lambda: frames(syms, "6mo"))
+        if tf == "D":
+            fr = cached(base, 300, lambda: frames(syms, "6mo"))
+        else:
+            per, itv, _ = TFS[tf]
+            fr = cached(base + ":" + tf, 900, lambda: frames(syms, per, itv))
     except Exception:
         return err("Data lene me dikkat aayi.", 502)
-    open_ = market_open()
-    up, down, near = [], [], []
+    open_ = market_open() and tf == "D"
+    keep = TFS[tf][2]
+    up, down, near, form = [], [], [], []
     for s, df in fr.items():
         try:
-            P = pt_best(to_bars(df, open_))
+            P = pt_best(to_bars(df, open_)[-keep:], forming, tf)
         except Exception:
             continue
         if not P:
@@ -693,32 +708,46 @@ def api_patterns():
         c = df["Close"].dropna()
         price = float(c.iloc[-1])
         prev = float(c.iloc[-2]) if len(c) > 1 else price
-        liq = float(df["Volume"].fillna(0).tail(20).mean()) * price / 1e7
+        liq = float(df["Volume"].fillna(0).tail(20).mean()) * price / 1e7 / TF_LIQ[tf]
         if src != "wl" and liq < 1.0:
             continue
         if P["state"] == "near" and P["score"] < 35:
             continue
+        if P["state"] == "forming" and P["score"] < 15:
+            continue
         it = {"id": s, "name": s.rsplit(".", 1)[0], "cap": CAP.get(s, "").capitalize(), "price": price, "liq": round(liq, 1),
-              "chg": (price / prev - 1) * 100 if prev else 0.0, "P": P}
-        (near if P["state"] == "near" else up if P["dir"] == "up" else down).append(it)
-    for L in (up, down, near):
+              "chg": (price / prev - 1) * 100 if prev else 0.0, "P": P, "tf": tf}
+        st = P["state"]
+        (form if st == "forming" else near if st == "near" else up if P["dir"] == "up" else down).append(it)
+    for L in (up, down, near, form):
         L.sort(key=lambda r: -r["P"]["score"])
-    return reply({"checked": len(fr), "up": up[:n], "down": down[:n], "near": near[:n]})
+    return reply({"checked": len(fr), "tf": tf, "up": up[:n], "down": down[:n], "near": near[:n], "forming": form[:n]})
 
 
 @app.route("/api/pattern")
 def api_pattern():
+    """Ek stock ke pattern: Day, Week aur Month teeno timeframe me (chart ke liye candles + lines ke saath)."""
     sym = request.args.get("symbol", "").strip().upper()
     if not sym:
         return err("Symbol do.")
 
     def build():
-        h = yf.Ticker(sym).history(period="1y", interval="1d", auto_adjust=False)
-        if h is None or h.empty:
+        out = {}
+        t = yf.Ticker(sym)
+        for tf, (per, itv, keep) in TFS.items():
+            try:
+                h = t.history(period=per, interval=itv, auto_adjust=False)
+                if h is None or h.empty:
+                    continue
+                bars = to_bars(h.dropna(subset=["Close"]), market_open() and tf == "D")[-keep:]
+                a = pt_analyse(bars, tf)
+                out[tf] = {"name": TF_NAME[tf], "bars": bars, "pats": a["all"] if a else [], "candles": a["candles"] if a else []}
+            except Exception:
+                continue
+        if "D" not in out:
             return None
-        bars = to_bars(h.dropna(subset=["Close"]), market_open())[-130:]
-        a = pt_analyse(bars)
-        return {"bars": bars, "pats": a["all"] if a else [], "candles": a["candles"] if a else []}
+        out.update({"bars": out["D"]["bars"], "pats": out["D"]["pats"], "candles": out["D"]["candles"]})  # purane format ke liye
+        return out
     try:
         d = cached("pt:" + sym, 120, build)
     except Exception:

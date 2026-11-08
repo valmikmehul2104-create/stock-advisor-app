@@ -149,6 +149,13 @@ a.news{display:block;color:inherit;text-decoration:none}
 .pseg button{flex:1;padding:10px 6px;border-radius:12px;border:1px solid var(--bd);background:none;font-size:13px;color:var(--mut);white-space:nowrap}
 .pseg button.on{border-color:var(--tx);color:var(--tx);font-weight:600}
 .legend{font-size:12px;color:var(--mut);margin-top:6px;line-height:1.5}
+.pseg{overflow-x:auto}
+.pill.tfb{background:var(--fld);color:var(--mut);border:1px solid var(--bd);margin-left:2px}
+.tfrow{display:flex;gap:8px;margin-bottom:12px}
+.tfrow button{flex:1;padding:9px 4px;border-radius:12px;border:1px solid var(--bd);background:none;font-size:14px;font-weight:600;color:var(--mut);line-height:1.25}
+.tfrow button .note{display:block;font-weight:400}
+.tfrow button.on{border-color:var(--tx);color:var(--tx)}
+.ptrow{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;padding:9px 0;border:0;border-bottom:1px solid var(--bd);background:none;font-size:14px;text-align:left;color:var(--tx)}
 </style>
 </head>
 <body>
@@ -203,10 +210,11 @@ a.news{display:block;color:inherit;text-decoration:none}
   <section class="scr" id="s-pat" hidden>
     <div class="card">
       <h2>Chart pattern scanner (breakout / breakdown)</h2>
-      <div class="note" style="margin-bottom:10px">Sirf chart ke pattern par: triangle, wedge, range, double top/bottom, head &amp; shoulders, flag. Jin stocks me breakout ya breakdown hua ya hone wala hai unki alag list.</div>
+      <div class="note" style="margin-bottom:10px">Chart ke saare pattern: triangle, wedge, channel, megaphone, range, double/triple top-bottom, head &amp; shoulders, rounding, cup &amp; handle, flag, pennant, diamond, V reversal, island. Timeframe chuno: Day, Week ya Month. Jin stocks me breakout/breakdown hua, hone wala hai ya pattern ban raha hai unki alag list.</div>
       <div class="grid">
         <div><label>Kahan se dhoondhein</label><select id="psrc"><option value="all">Sab: Large + Mid + Small cap</option><option value="large">Sirf Large cap</option><option value="mid">Sirf Midcap</option><option value="small">Sirf Smallcap</option><option value="wl">Meri active watchlist</option></select></div>
         <div><label>Har list me kitne</label><select id="pcnt"><option>10</option><option selected>20</option><option>30</option></select></div>
+        <div><label>Timeframe</label><select id="ptf"><option value="D">Day (daily chart)</option><option value="W">Week (weekly chart)</option><option value="M">Month (monthly chart)</option></select></div>
       </div>
       <button class="btn" id="pscan" style="margin-top:12px">Pattern scan karo</button>
       <div id="pst" class="note" style="margin-top:8px"></div>
@@ -945,9 +953,11 @@ document.addEventListener("click",e=>{
   else if(a==="adel"){alerts=alerts.filter(x=>x.id!==d.id);saveWL();drawAlr();if(S){techC();head();}}
   else if(a==="tdel"){toasts.splice(+d.i,1);drawToast();}
   else if(a==="ptsec"){ptSec=d.k;ptDraw();}
-  else if(a==="ptopen"){const r=(ptData&&ptData[ptSec]||[])[+d.i];if(r)openStock({id:r.id,name:r.name,tab:"pt"});}
+  else if(a==="ptopen"){const r=(ptData&&ptData[ptSec]||[])[+d.i];if(r){ptWantTf=r.tf||ptData.tf||"D";openStock({id:r.id,name:r.name,tab:"pt"});}}
   else if(a==="ptsalert"){const r=(ptData&&ptData[ptSec]||[])[+d.i];if(r)setAlert(r.id,r.name,{sl:r.P.sl,t1:r.P.t1,base:r.P.level,dir:r.P.dir==="up"?"up":"dn"},r.price);}
   else if(a==="ptsel"){if(S){S.pi=+d.i;ptC();}}
+  else if(a==="pttf"){if(S){S.ptf=d.tf;S.pi=0;ptC();}}
+  else if(a==="ptgo"){if(S){S.ptf=d.tf;S.pi=+d.i;ptC();}}
   else if(a==="ptalert")ptAlertToggle();
   else if(a==="pushon")pushOn();
   else if(a==="pushtest")pushTest();
@@ -963,9 +973,10 @@ setInterval(()=>{
 },60000);
 if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
 
-/* ---------- chart patterns: scanner list + candlestick figure ---------- */
-let ptSec="up",ptData=null,ptBusy=false,pushErr="",pst=null;
-const PTS={up:"Breakout ↑",down:"Breakdown ↓",near:"Banne wale"};
+/* ---------- chart patterns: scanner list + candlestick figure (Day / Week / Month) ---------- */
+let ptSec="up",ptData=null,ptBusy=false,pushErr="",pst=null,ptWantTf=null;
+const PTS={up:"Breakout ↑",down:"Breakdown ↓",near:"Banne wale",forming:"Ban raha hai"};
+const TFN={D:"Day",W:"Week",M:"Month"},TFU={D:"din",W:"hafte",M:"mahine"},TFC={D:"daily",W:"weekly",M:"monthly"};
 function ptHome(){drawNoti();if(ptData)ptDraw();}
 async function ptScan(){
   if(ptBusy)return;
@@ -973,26 +984,28 @@ async function ptScan(){
   $("pscan").disabled=true;$("pscan").textContent="Scan chal raha hai...";
   $("pst").textContent="Scan ho raha hai (pehli baar 1-2 minute lag sakte hain)...";
   try{
-    const src=$("psrc").value;let url="/api/patterns?n="+(+$("pcnt").value)+"&src="+src;
+    const src=$("psrc").value,tf=$("ptf").value;let url="/api/patterns?n="+(+$("pcnt").value)+"&src="+src+"&tf="+tf+"&forming=1";
     if(src==="wl")url+="&symbols="+encodeURIComponent(lists[act].items.map(i=>i.id).slice(0,50).join(","));
     ptData=await api(url);
     if(!ptData.up.length&&ptData.down.length)ptSec="down";
     ptDraw();
-    $("pst").textContent=ptData.checked+" stocks check hue: "+ptData.up.length+" breakout, "+ptData.down.length+" breakdown, "+ptData.near.length+" banne wale.";
+    $("pst").textContent=TFN[ptData.tf]+" chart par "+ptData.checked+" stocks check hue: "+ptData.up.length+" breakout, "+ptData.down.length+" breakdown, "+ptData.near.length+" banne wale, "+ptData.forming.length+" ban raha hai.";
   }catch(e){$("pst").textContent=errT(e);}
   ptBusy=false;$("pscan").disabled=false;$("pscan").textContent="Pattern scan karo";
 }
 function ptDraw(){
   if(!ptData)return;
-  $("pseg").innerHTML=["up","down","near"].map(k=>`<button class="${k===ptSec?"on":""}" data-act="ptsec" data-k="${k}">${PTS[k]} (${ptData[k].length})</button>`).join("");
-  const L=ptData[ptSec],hint=ptSec==="down"?'<div class="note" style="margin-bottom:10px">Breakdown = giravat ka sanket. Naya khareedna avoid karo; holding hai to stop-loss dekho. Short karna sirf F&amp;O me hota hai.</div>':ptSec==="near"?'<div class="note" style="margin-bottom:10px">In me abhi breakout/breakdown hua nahi. Line ke upar/neeche close aane ka intezaar karo.</div>':"";
-  $("pres").innerHTML=hint+(L.length?L.map((r,i)=>ptCard(r,i)).join(""):'<div class="card note">Is list me abhi koi stock nahi mila.</div>');
+  const keys=["up","down","near","forming"];
+  $("pseg").innerHTML=keys.map(k=>`<button class="${k===ptSec?"on":""}" data-act="ptsec" data-k="${k}">${PTS[k]} (${(ptData[k]||[]).length})</button>`).join("");
+  const L=ptData[ptSec]||[],hints={down:"Breakdown = giravat ka sanket. Naya khareedna avoid karo; holding hai to stop-loss dekho. Short karna sirf F&amp;O me hota hai.",near:"In me abhi breakout/breakdown hua nahi. Line ke upar/neeche close aane ka intezaar karo.",forming:"Ye pattern abhi ban rahe hain (complete nahi). Entry tab sochna jab price level ke upar/neeche close ho. Inme risk aur jhoothe signal zyada hote hain."};
+  $("pres").innerHTML=(hints[ptSec]?'<div class="note" style="margin-bottom:10px">'+hints[ptSec]+'</div>':"")+(L.length?L.map((r,i)=>ptCard(r,i)).join(""):'<div class="card note">Is list me abhi koi stock nahi mila.</div>');
 }
-function ptPill(P){const up=P.dir==="up";return P.state==="brk"?`<span class="pill ${up?"g":"r"}">${up?"BREAKOUT ↑":"BREAKDOWN ↓"}</span>`:`<span class="pill y">${up?"Breakout":"Breakdown"} ke kareeb</span>`;}
+function ptPill(P){const up=P.dir==="up";return P.state==="brk"?`<span class="pill ${up?"g":"r"}">${up?"BREAKOUT ↑":"BREAKDOWN ↓"}</span>`:P.state==="forming"?`<span class="pill y">Ban raha hai</span>`:`<span class="pill y">${up?"Breakout":"Breakdown"} ke kareeb</span>`;}
+const tfBadge=tf=>tf?`<span class="pill tfb">${TFN[tf]||tf}</span>`:"";
 function ptCard(r,i){
   const P=r.P,up=P.dir==="up";
   return `<div class="card"><div class="top"><div><div class="nmx" style="font-size:16px">${esc(r.name)}</div><div class="note">${fx(r.price)} <span class="${cl(r.chg)}">${pc(r.chg)}</span>${r.cap?" | "+esc(r.cap)+" cap":""}</div></div><div style="text-align:right">${ptPill(P)}<div class="note">Score ${P.score}/100</div></div></div>
-  <div style="margin:8px 0 2px"><b>${esc(P.name)}</b>${P.state==="brk"?'<span class="note"> | '+P.k+' din pehle</span>':""}</div>
+  <div style="margin:8px 0 2px"><b>${esc(P.name)}</b> ${tfBadge(r.tf||P.tf)}${P.state==="brk"?'<span class="note"> | '+P.k+' '+(TFU[r.tf||P.tf]||"din")+' pehle</span>':""}</div>
   <div class="note" style="margin-bottom:6px">${esc((P.why||[])[0]||"")}</div>
   <div class="row"><span>${up?"Entry":"Short entry"} / Stop-loss</span><b>${fx(P.entry,0)} / <span class="r">${fx(P.sl,0)}</span></b></div>
   <div class="row"><span>Target 1 / Target 2</span><b class="g">${fx(P.t1,0)} / ${fx(P.t2,0)}</b></div>
@@ -1000,20 +1013,23 @@ function ptCard(r,i){
   <div class="chips" style="margin-top:8px"><button class="chip" data-act="ptopen" data-i="${i}">📈 Chart + analysis</button><button class="chip" data-act="ptsalert" data-i="${i}">🔔 Alert</button></div></div>`;
 }
 
-/* candlestick chart + pattern lines + entry/SL/target figure */
-function ptChart(bs,P,cs){
-  const N=Math.min(80,bs.length);if(N<10)return"";
-  const off=bs.length-N,b=bs.slice(off),W=380,H=320,pl=6,pr=64,pz=P?46:0,pt=14,pb=22,vh=30;
+/* candlestick chart + pattern shapes (lines / curve / box) + entry/SL/target figure */
+const PSC={u:"var(--r)",l:"var(--g)",n:"var(--ac)",y:"var(--y)",t:"var(--mut)",r:"var(--r)",g:"var(--g)"};
+function ptChart(bs,P,cs,tf){
+  tf=tf||"D";
+  const want=P&&P.start!=null?Math.max(0,bs.length-P.start)+10:70;
+  const N=Math.min(bs.length,Math.max(70,Math.min(130,want)));if(N<10)return"";
+  const off=bs.length-N,b=bs.slice(off),W=380,H=330,pl=6,pr=64,pz=P?46:0,pt=14,pb=22,vh=30;
   const pw=W-pl-pr-pz,cw=pw/N,X=i=>pl+(i-off+.5)*cw;
   const yAt=(l,i)=>l.b[0]===l.a[0]?l.a[1]:l.a[1]+(l.b[1]-l.a[1])*(i-l.a[0])/(l.b[0]-l.a[0]);
   let lo=Math.min(...b.map(z=>z.l)),hi=Math.max(...b.map(z=>z.h));
   if(P)[P.entry,P.sl,P.t1,P.t2].forEach(v=>{lo=Math.min(lo,v);hi=Math.max(hi,v);});
   const pd=(hi-lo)*.05||1;lo-=pd;hi+=pd;
-  const Y=v=>pt+(hi-v)*(H-pt-pb-vh)/(hi-lo),labs=[];
-  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Candlestick chart">`;
+  const Y=v=>pt+(hi-v)*(H-pt-pb-vh)/(hi-lo),labs=[],ph=H-pt-pb-vh;
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Candlestick chart"><defs><clipPath id="ptclip"><rect x="${pl}" y="${pt}" width="${pw+pz}" height="${ph}"/></clipPath></defs>`;
   if(P){
-    const x0=pl+pw,e=Y(P.entry),sl=Y(P.sl),t2=Y(P.t2);
-    s+=`<rect x="${x0}" y="${Math.min(e,t2)}" width="${pz}" height="${Math.abs(e-t2)}" fill="var(--g)" opacity=".16"/><rect x="${x0}" y="${Math.min(e,sl)}" width="${pz}" height="${Math.abs(e-sl)}" fill="var(--r)" opacity=".16"/>`;
+    const x0=pl+pw,e=Y(P.entry),sl=Y(P.sl),t2=Y(P.t2),fo=P.state==="forming"?.08:.16;
+    s+=`<rect x="${x0}" y="${Math.min(e,t2)}" width="${pz}" height="${Math.abs(e-t2)}" fill="var(--g)" opacity="${fo}"/><rect x="${x0}" y="${Math.min(e,sl)}" width="${pz}" height="${Math.abs(e-sl)}" fill="var(--r)" opacity="${fo}"/>`;
     [[P.entry,"Entry","var(--tx)","1 3"],[P.sl,"SL","var(--r)","4 3"],[P.t1,"T1","var(--g)","4 3"],[P.t2,"T2","var(--g)","4 3"]].forEach(z=>{
       s+=`<line x1="${pl}" x2="${x0+pz}" y1="${Y(z[0])}" y2="${Y(z[0])}" stroke="${z[2]}" stroke-dasharray="${z[3]}" stroke-width="1" opacity=".75"/>`;
       labs.push({y:Y(z[0]),t:z[1]+" "+Math.round(z[0]),c:z[2]});});
@@ -1024,8 +1040,28 @@ function ptChart(bs,P,cs){
     s+=`<line x1="${x}" x2="${x}" y1="${Y(z.h)}" y2="${Y(z.l)}" stroke="${c}" stroke-width="1"/><rect x="${x-cw*.32}" y="${y1}" width="${cw*.64}" height="${Math.max(.8,y2-y1)}" fill="${c}"/>`;});
   (cs||[]).filter(c=>c.i>=off).slice(-2).forEach(c=>{const z=bs[c.i];s+=`<rect x="${X(c.i)-cw*.9}" y="${Y(z.h)-3}" width="${cw*1.8}" height="${Y(z.l)-Y(z.h)+6}" fill="none" stroke="var(--y)" stroke-width="1.2" rx="2"/>`;});
   if(P){
-    P.lines.forEach(l=>{const a=Math.max(l.a[0],off);if(a>=l.b[0])return;
-      s+=`<line x1="${X(a)}" y1="${Y(yAt(l,a))}" x2="${X(l.b[0])}" y2="${Y(yAt(l,l.b[0]))}" stroke="${l.k==="u"?"var(--r)":"var(--g)"}" stroke-width="1.6" stroke-dasharray="6 3"/>`;});
+    const shapes=(P.shapes&&P.shapes.length)?P.shapes:(P.lines||[]).map(l=>({t:"line",a:l.a,b:l.b,c:l.k,l:""}));
+    let g=`<g clip-path="url(#ptclip)">`,tx="";
+    shapes.forEach((sh,k)=>{
+      const col=PSC[sh.c]||"var(--mut)";
+      if(sh.t==="line"){
+        const a=Math.max(sh.a[0],off);if(sh.b[0]<=off||a>=sh.b[0])return;
+        const faint=sh.c==="t";
+        g+=`<line x1="${X(a)}" y1="${Y(yAt(sh,a))}" x2="${X(sh.b[0])}" y2="${Y(yAt(sh,sh.b[0]))}" stroke="${col}" stroke-width="${faint?1.1:1.7}" stroke-dasharray="${faint?"2 3":"6 3"}"/>`;
+        if(sh.l)tx+=`<text x="${Math.min(X(sh.b[0]),pl+pw)-2}" y="${Y(yAt(sh,sh.b[0]))+(sh.c==="l"?11:-4)}" text-anchor="end" style="fill:${col};font-size:9px">${esc(sh.l)}</text>`;
+      }else if(sh.t==="curve"){
+        const pts=sh.p.filter(p=>p[0]>=off).map(p=>X(p[0])+","+Y(p[1])).join(" ");
+        if(pts)g+=`<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>`;
+      }else if(sh.t==="box"){
+        const x1=X(Math.max(sh.a[0],off))-cw/2,x2=X(sh.b[0])+cw/2,y1=Y(sh.a[1]),y2=Y(sh.b[1]);
+        g+=`<rect x="${x1}" y="${Math.min(y1,y2)}" width="${Math.max(2,x2-x1)}" height="${Math.abs(y2-y1)}" fill="${col}" opacity=".10" stroke="${col}" stroke-width="1.2" stroke-dasharray="3 2"/>`;
+        if(sh.l)tx+=`<text x="${(x1+x2)/2}" y="${Math.min(y1,y2)-4}" text-anchor="middle" style="fill:${col};font-size:9px">${esc(sh.l)}</text>`;
+      }else if(sh.t==="poly"){
+        const pts=sh.p.filter(p=>p[0]>=off).map(p=>X(p[0])+","+Y(p[1])).join(" ");
+        if(pts)g+=`<polygon points="${pts}" fill="${col}" opacity=".08" stroke="${col}" stroke-width="1.4"/>`;
+      }
+    });
+    s+=g+"</g>"+tx;
     (P.pts||[]).forEach(p=>{if(p.i<off)return;const z=bs[p.i],hiPt=Math.abs(p.y-z.h)<Math.abs(p.y-z.l);
       s+=`<circle cx="${X(p.i)}" cy="${Y(p.y)}" r="2.8" fill="var(--y)"/>`;
       if(p.t)s+=`<text x="${X(p.i)}" y="${Y(p.y)+(hiPt?-6:14)}" text-anchor="middle" style="fill:var(--y)">${esc(p.t)}</text>`;});
@@ -1038,7 +1074,8 @@ function ptChart(bs,P,cs){
   }
   labs.sort((a,c)=>a.y-c.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<11)labs[i].y=labs[i-1].y+11;
   labs.forEach(l=>{s+=`<text x="${pl+pw+pz+4}" y="${l.y+3}" style="fill:${l.c}">${esc(l.t)}</text>`;});
-  return s+`<text x="${pl}" y="${H-6}">${esc(b[0].d)}</text><text x="${pl+pw}" y="${H-6}" text-anchor="end">${esc(b[b.length-1].d)}</text></svg>`;
+  const ax=d=>tf==="M"?String(d).slice(0,7):String(d);
+  return s+`<text x="${pl}" y="${H-6}">${esc(ax(b[0].d))}</text><text x="${pl+pw/2}" y="${H-6}" text-anchor="middle">${esc(ax(b[Math.floor(b.length/2)].d))}</text><text x="${pl+pw}" y="${H-6}" text-anchor="end">${esc(ax(b[b.length-1].d))}</text></svg>`;
 }
 async function ptLoad(){
   if(!S)return;
@@ -1046,35 +1083,50 @@ async function ptLoad(){
   const my=tok;S.ptBusy=true;ptC();
   try{S.pt=await api("/api/pattern?symbol="+encodeURIComponent(S.id));}catch(e){S.pt={error:errT(e)};}
   if(my!==tok||!S)return;
-  S.ptBusy=false;S.pi=0;ptC();
+  S.ptBusy=false;S.pi=0;
+  if(!S.pt.error){
+    const order=["D","W","M"],have=tf=>S.pt[tf]&&(S.pt[tf].pats||[]).length;
+    S.ptf=(ptWantTf&&S.pt[ptWantTf])?ptWantTf:(order.find(tf=>S.pt[tf]&&(S.pt[tf].pats||[]).some(p=>p.state!=="forming"))||order.find(have)||"D");
+  }
+  ptWantTf=null;ptC();
 }
-function ptCur(){const ps=(S&&S.pt&&S.pt.pats)||[];return ps[Math.min(S.pi||0,ps.length-1)]||null;}
+const ptTf=()=>(S&&S.ptf)||"D";
+const ptD=()=>(S&&S.pt&&S.pt[ptTf()])||null;
+function ptCur(){const ps=(ptD()||{}).pats||[];return ps[Math.min(S.pi||0,ps.length-1)]||null;}
 function ptAlertToggle(){
-  const P=ptCur();if(!P||!S)return;
+  const P=ptCur(),d=ptD();if(!P||!S||!d)return;
   if(alerts.some(x=>x.id===S.id)){alerts=alerts.filter(x=>x.id!==S.id);saveWL();drawAlr();ptC();head();toast("Alert hata diya.","y",3000);return;}
-  const bs=S.pt.bars;setAlert(S.id,S.name,{sl:P.sl,t1:P.t1,base:P.level,dir:P.dir==="up"?"up":"dn"},S.price||bs[bs.length-1].c);ptC();head();
+  const bs=d.bars;setAlert(S.id,S.name,{sl:P.sl,t1:P.t1,base:P.level,dir:P.dir==="up"?"up":"dn"},S.price||bs[bs.length-1].c);ptC();head();
 }
 function ptC(){
   const el=$("p-pt");if(!S)return;
-  if(S.ptBusy||!S.pt){el.innerHTML='<div class="cph">Chart pattern check ho raha hai...</div>';return;}
+  if(S.ptBusy||!S.pt){el.innerHTML='<div class="cph">Chart pattern check ho raha hai (Day, Week, Month)...</div>';return;}
   if(S.pt.error){el.innerHTML='<div class="card note">'+esc(S.pt.error)+'</div>';return;}
-  const d=S.pt,ps=d.pats||[],P=ptCur(),up=P&&P.dir==="up";
-  let h='<div class="card" style="padding:12px 12px 8px"><h2>Candlestick chart + pattern (daily, aakhri 80 din)</h2>'+ptChart(d.bars,P,d.candles)+'<div class="legend">Hari candle = upar band, lal = neeche band. Dashed lal line = upar ki line (resistance), dashed hari line = neeche ki line (support / neckline). Peela dot = pattern ke high/low, peela dabba = khaas candle. Hara dabba = profit zone (Entry se T2), lal dabba = risk zone (Entry se SL). Neeche ke bars = volume.</div></div>';
-  if(ps.length>1)h+='<div class="chips" style="margin-bottom:12px">'+ps.map((p,i)=>`<button class="chip ${p===P?"on":""}" data-act="ptsel" data-i="${i}">${esc(p.name)}${p.dir==="up"?" ↑":" ↓"}</button>`).join("")+"</div>";
+  const tf=ptTf(),d=ptD();
+  if(!d){el.innerHTML='<div class="card note">Is timeframe ka data nahi mila.</div>';return;}
+  const ps=d.pats||[],P=ptCur(),up=P&&P.dir==="up",tfs=["D","W","M"].filter(k=>S.pt[k]);
+  let h='<div class="tfrow">'+tfs.map(k=>{const L=S.pt[k].pats||[],live=L.filter(p=>p.state!=="forming").length;
+    return `<button class="${k===tf?"on":""}" data-act="pttf" data-tf="${k}">${TFN[k]}<span class="note"> ${L.length?L.length+" pattern"+(live?" ●":""):"koi nahi"}</span></button>`;}).join("")+'</div>';
+  h+=`<div class="card" style="padding:12px 12px 8px"><h2>Candlestick chart + pattern (${TFN[tf]} chart: har candle = 1 ${tf==="D"?"din":tf==="W"?"hafta":"mahina"})</h2>`+ptChart(d.bars,P,d.candles,tf)+'<div class="legend">Hari candle = upar band, lal = neeche band. Lal dashed line = upar ki line (resistance), hari dashed line = neeche ki line (support). Neeli line = neckline / breakout level, peela curve = cup ya katore ka shape, peela dabba = island ya khaas candle. Peela dot = pattern ke high/low. Hara dabba = profit zone (Entry se T2), lal dabba = risk zone (Entry se SL). Neeche ke bars = volume.</div></div>';
+  if(ps.length>1)h+='<div class="chips" style="margin-bottom:12px">'+ps.map((p,i)=>`<button class="chip ${p===P?"on":""}" data-act="ptsel" data-i="${i}">${esc(p.name)}${p.dir==="up"?" ↑":" ↓"}${p.state==="forming"?" (ban raha)":""}</button>`).join("")+"</div>";
+  // sab timeframe ka saaransh
+  h+='<div class="card"><h2>Kis timeframe me kaunsa pattern ban raha hai</h2>'+tfs.map(k=>{const L=S.pt[k].pats||[];
+    return `<div style="padding:6px 0 2px"><b>${TFN[k]} chart</b> <span class="note">(${TFC[k]} candles)</span></div>`+(L.length?L.map((p,i)=>`<button class="ptrow" data-act="ptgo" data-tf="${k}" data-i="${i}"><span>${esc(p.name)}</span><span>${ptPill(p)} <b class="${p.dir==="up"?"g":"r"}">${p.dir==="up"?"↑":"↓"}</b></span></button>`).join(""):'<div class="note" style="padding:2px 0 8px">Is timeframe me koi saaf pattern nahi.</div>');}).join("")+'<div class="note" style="margin-top:8px">Bade timeframe (Week/Month) ka pattern zyada bharose ka hota hai par dheere chalta hai. Jab Day aur Week dono me ek hi direction ka pattern ho, tab signal mazboot maana jata hai.</div></div>';
   if(P){
-    const cp=d.bars[d.bars.length-1].c,risk=Math.abs(P.entry-P.sl),when=P.state==="brk"?(Math.abs(cp-P.entry)/P.entry>.02?"Price entry se door nikal chuka hai: pullback par "+fx(P.entry,0)+" ke paas entry dekho, peeche mat bhaago.":"Abhi entry zone me hai (close ke basis par)."):"Pehle close "+fx(P.level,0)+" ke "+(up?"upar":"neeche")+" aane do, phir entry.";
-    h+=`<div class="card"><div class="top"><div><div class="nmx" style="font-size:17px">${esc(P.name)}</div><div class="note">${P.state==="brk"?(P.k+" din se, ")+(up?"upar":"neeche")+" toota":"Abhi bana hua, toota nahi"}</div></div><div style="text-align:right">${ptPill(P)}<div class="note">Score ${P.score}/100 (${esc(P.label)})</div></div></div><div class="note" style="margin-top:8px">${esc(P.desc||"")}</div></div>`;
+    const cp=d.bars[d.bars.length-1].c,risk=Math.abs(P.entry-P.sl),u=TFU[tf],when=P.state==="brk"?(Math.abs(cp-P.entry)/P.entry>.02?"Price entry se door nikal chuka hai: pullback par "+fx(P.entry,0)+" ke paas entry dekho, peeche mat bhaago.":"Abhi entry zone me hai (close ke basis par)."):"Pehle "+TFC[tf]+" close "+fx(P.level,0)+" ke "+(up?"upar":"neeche")+" aane do, phir entry.";
+    h+=`<div class="card"><div class="top"><div><div class="nmx" style="font-size:17px">${esc(P.name)} ${tfBadge(tf)}</div><div class="note">${P.state==="brk"?(P.k+" "+u+" se, ")+(up?"upar":"neeche")+" toota":P.state==="forming"?"Abhi ban raha hai, "+TFN[tf]+" timeframe par":"Toote ke kareeb, "+TFN[tf]+" timeframe par"}</div></div><div style="text-align:right">${ptPill(P)}<div class="note">Score ${P.score}/100 (${esc(P.label)})</div></div></div><div class="note" style="margin-top:8px">${esc(P.desc||"")}</div></div>`;
     h+=`<div class="card"><h2>Trade plan (figure me dikha raha hai)</h2>
+      <div class="row"><span>Timeframe</span><b>${TFN[tf]} (${TFC[tf]})</b></div>
       <div class="row"><span>Direction</span><b class="${up?"g":"r"}">${up?"Khareedna (Long)":"Giravat (Short / avoid)"}</b></div>
       <div class="row"><span>Entry</span><b>${fx(P.entry,0)}</b></div>
       <div class="row"><span>Stop-loss</span><b class="r">${fx(P.sl,0)} (${(risk/P.entry*100).toFixed(1)}%)</b></div>
       <div class="row"><span>Target 1</span><b class="g">${fx(P.t1,0)} (${(Math.abs(P.t1-P.entry)/P.entry*100).toFixed(1)}%)</b></div>
       <div class="row"><span>Target 2</span><b class="g">${fx(P.t2,0)} (${(Math.abs(P.t2-P.entry)/P.entry*100).toFixed(1)}%)</b></div>
       <div class="row"><span>Risk : Reward (T1)</span><b>1 : ${P.rr.toFixed(1)}</b></div>
-      <div class="note" style="margin-top:8px">${esc(when)} Target pattern ki oonchai (measured move) se nikala hai.</div></div>`;
+      <div class="note" style="margin-top:8px">${esc(when)} Target pattern ki oonchai (measured move) se nikala hai.${tf!=="D"?" "+TFN[tf]+" chart ka SL/target bada hota hai, isliye position chhoti rakho.":""}</div></div>`;
     h+='<div class="card"><h2>Kyun?</h2><ul>'+P.why.map(w=>"<li>"+esc(w)+"</li>").join("")+"</ul></div>";
-  }else h+='<div class="card note">Abhi is stock me koi saaf chart pattern (breakout/breakdown) nahi bana. Upar sirf candles dikh rahi hain.</div>';
-  if((d.candles||[]).length)h+='<div class="card"><h2>Candlestick signals (aakhri 5 din)</h2>'+d.candles.slice().reverse().map(c=>`<div class="row"><span>${esc(d.bars[c.i].d)}</span><b class="${c.k}" style="max-width:70%">${esc(c.t)}</b></div>`).join("")+"</div>";
+  }else h+='<div class="card note">Is timeframe par abhi koi saaf chart pattern nahi bana. Upar sirf candles dikh rahi hain; doosre timeframe ka button dabake dekho.</div>';
+  if((d.candles||[]).length)h+=`<div class="card"><h2>Candlestick signals (${TFN[tf]} chart, aakhri 5 ${TFU[tf]})</h2>`+d.candles.slice().reverse().map(c=>`<div class="row"><span>${esc(d.bars[c.i].d)}</span><b class="${c.k}" style="max-width:72%">${esc(c.t)}</b></div>`).join("")+"</div>";
   if(P){const has=alerts.some(x=>x.id===S.id);h+=`<button class="btn" data-act="ptalert" style="margin-bottom:12px">${has?"🔕 Alert hata do":"🔔 Is pattern ka alert lagao (phone notification)"}</button>`;}
   el.innerHTML=h+'<div class="note">Ye chart-pattern ka rule-based analysis hai, financial advice nahi. Pattern fail bhi hote hain, stop-loss zaroor lagao.</div>';
 }
