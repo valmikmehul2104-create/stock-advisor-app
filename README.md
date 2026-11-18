@@ -1,3 +1,24 @@
+# v7: Sector-wise teji/mandi heatmap + Latest market news
+
+**Naya kya hai (Explore screen me, search ke neeche 3 tab: Market | Sectors | News):**
+- **Sectors:** 17 sector (Bank, IT, Pharma, Auto, FMCG, Metals, Realty, Oil & Gas, Power, Defence, Railways...) ka heatmap.
+  Hara = teji, lal = mandi, rang jitna gehra move utna bada. **Aaj / 1 Hafta / 1 Mahina** ka button hai.
+- **Sector par tap** karo to uske saare stocks **live price** ke saath dikhte hain (Top gainers / Top losers / A-Z). Kisi bhi stock par tap karo,
+  wahi poora analysis page khulta hai jo search se khulta hai. Market chalte waqt har minute apne aap refresh hota hai.
+- **News:** "Aaj bazaar teji/mandi/sapaat" ka box, **kis wajah se** (Nifty, kaunse sector mazboot/kamzor, breadth, VIX, khabron ke theme),
+  kin wajahon par charcha (FII, RBI, Crude, Results, Global bazaar...), phir khabrein: har khabar par **Positive / Negative / Neutral** note,
+  related sector aur related stocks (live % ke saath, tap karke khulte hain). Filter: Sab / Positive / Negative aur theme par tap.
+
+**Update kaise karein:** GitHub repo me **Add file > Upload files** se ye 3 files (same naam se) upload karke Commit karo:
+`app.py`, `index.html`, aur **naya** `sectors.py`. Render 2-3 minute me khud update kar dega.
+
+**Jaan lo:** Sector ka average sab liquid stocks ko barabar maan kar nikala hai (ek-do upper-circuit wale stock average nahi bigadte).
+"Kis wajah se" khabron ke shabdon aur sector ke move se nikala **andaza** hai, pakka karan nahi. Sentiment shabdon ke tone se nikalta hai (VADER),
+isliye kabhi galat bhi ho sakta hai. Khabrein Google News aur Yahoo se aati hain.
+Sector list badalni ho to `sectors.py` me stock ka naam kisi bhi list me jod do.
+
+---
+
 # v6: Chart pattern ka poora engine (Day / Week / Month)
 
 **Kya naya hai (sirf `patterns.py`, `app.py`, `index.html`, `requirements.txt` badle hain):**

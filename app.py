@@ -3,6 +3,7 @@ import base64
 import hashlib
 import json
 import math
+import re
 import os
 import threading
 import time
@@ -17,6 +18,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from backtest import run as bt_run, stats as bt_stats
 from patterns import analyse as pt_analyse, best as pt_best
 from technical import analyse
+from sectors import SECTOR_LIST, SECTOR_OF, stocks_of
 from universe import CAP, SECTORS, UNIVERSE
 
 app = Flask(__name__)
@@ -635,6 +637,261 @@ def api_explore():
     stocks = [{"id": s, "name": s.rsplit(".", 1)[0], **qs[s]} for s in big if s in qs]
     stocks.sort(key=lambda x: -x["chg"])
     return reply({"indices": idx, "gainers": stocks[:6], "losers": stocks[::-1][:6]})
+
+
+# ---------------------------------------------------------------- sector heatmap (teji / mandi)
+def _sector_rows():
+    """Har liquid stock ka din / hafta / mahine ka % badlav (cached daily data se)."""
+    fr = cached("scan:all", 300, lambda: frames(UNIVERSE, "6mo"))
+    rows, last = [], ""
+    for s, df in fr.items():
+        c = df["Close"].dropna()
+        if len(c) < 3:
+            continue
+        price = float(c.iloc[-1])
+        liq = float(df["Volume"].fillna(0).tail(20).mean()) * price / 1e7
+        if liq < 1.0 or s not in SECTOR_OF:
+            continue
+        last = max(last, str(df.index[-1])[:10])
+        ch = lambda k: (price / float(c.iloc[-1 - k]) - 1) * 100 if len(c) > k else None
+        rows.append({"id": s, "name": s.rsplit(".", 1)[0], "sector": SECTOR_OF[s], "price": price,
+                     "d": ch(1), "w": ch(5), "m": ch(21), "cap": CAP.get(s, "").capitalize()})
+    return rows, last
+
+
+def _agg(rs, k):
+    v = [max(-12.0, min(12.0, r[k])) for r in rs if r.get(k) is not None]  # ek do circuit wale stock average na bigaden
+    return sum(v) / len(v) if v else None
+
+
+def _sector_stats():
+    rows, last = cached("sec:rows", 120, _sector_rows)
+    out = []
+    for sec in SECTOR_LIST:
+        rs = [r for r in rows if r["sector"] == sec and r["d"] is not None]
+        if not rs:
+            continue
+        top, low = max(rs, key=lambda r: r["d"]), min(rs, key=lambda r: r["d"])
+        out.append({"name": sec, "n": len(rs), "adv": sum(1 for r in rs if r["d"] > 0), "dec": sum(1 for r in rs if r["d"] < 0),
+                    "d": _agg(rs, "d"), "w": _agg(rs, "w"), "m": _agg(rs, "m"),
+                    "top": {"id": top["id"], "name": top["name"], "chg": top["d"]},
+                    "low": {"id": low["id"], "name": low["name"], "chg": low["d"]}})
+    out.sort(key=lambda x: -(x["d"] if x["d"] is not None else -99))
+    return out, rows, last
+
+
+@app.route("/api/sectors")
+def api_sectors():
+    try:
+        out, rows, last = _sector_stats()
+    except Exception:
+        return err("Sector data nahi mila, thodi der baad try karo.", 502)
+    if not out:
+        return err("Sector data nahi mila.", 404)
+    return reply({"sectors": out, "asOf": last, "total": len(rows), "open": market_open(),
+                  "up": sum(1 for x in out if (x["d"] or 0) > 0), "down": sum(1 for x in out if (x["d"] or 0) < 0)})
+
+
+@app.route("/api/sector")
+def api_sector():
+    name = request.args.get("name", "").strip()
+    if name not in SECTOR_LIST:
+        return err("Ye sector nahi mila.", 404)
+    try:
+        stats, rows, last = _sector_stats()
+    except Exception:
+        stats, rows = [], []
+    base = {r["id"]: r for r in rows if r["sector"] == name}
+    syms = list(base) or stocks_of(name)
+    try:
+        qs = quotes(syms)  # taza (live) price, ~25 second ka cache
+    except Exception:
+        qs = {}
+    out = []
+    for s in syms:
+        b, q = base.get(s, {}), qs.get(s)
+        if not q and not b:
+            continue
+        out.append({"id": s, "name": s.rsplit(".", 1)[0], "cap": CAP.get(s, "").capitalize(),
+                    "price": (q or b)["price"], "chg": q["chg"] if q else b.get("d"), "w": b.get("w"), "m": b.get("m")})
+    out.sort(key=lambda r: -(r["chg"] if r["chg"] is not None else -99))
+    agg = next((x for x in stats if x["name"] == name), None)
+    return reply({"name": name, "stocks": out, "agg": agg, "open": market_open()})
+
+
+# ---------------------------------------------------------------- market news: teji / giravat ki wajah
+_ALIAS = {
+    "reliance": "RELIANCE.NS", "tcs": "TCS.NS", "infosys": "INFY.NS", "infy": "INFY.NS", "hdfc bank": "HDFCBANK.NS",
+    "icici bank": "ICICIBANK.NS", "sbi": "SBIN.NS", "state bank": "SBIN.NS", "kotak": "KOTAKBANK.NS", "axis bank": "AXISBANK.NS",
+    "bajaj finance": "BAJFINANCE.NS", "maruti": "MARUTI.NS", "tata motors": "TATAMOTORS.NS", "tata steel": "TATASTEEL.NS",
+    "jsw steel": "JSWSTEEL.NS", "adani ports": "ADANIPORTS.NS", "adani enterprises": "ADANIENT.NS", "itc": "ITC.NS",
+    "hindustan unilever": "HINDUNILVR.NS", "hul": "HINDUNILVR.NS", "bharti airtel": "BHARTIARTL.NS", "airtel": "BHARTIARTL.NS",
+    "l&t": "LT.NS", "larsen": "LT.NS", "wipro": "WIPRO.NS", "hcl tech": "HCLTECH.NS", "hcltech": "HCLTECH.NS",
+    "tech mahindra": "TECHM.NS", "sun pharma": "SUNPHARMA.NS", "dr reddy": "DRREDDY.NS", "cipla": "CIPLA.NS", "ongc": "ONGC.NS",
+    "ntpc": "NTPC.NS", "power grid": "POWERGRID.NS", "coal india": "COALINDIA.NS", "bpcl": "BPCL.NS", "indian oil": "IOC.NS",
+    "titan": "TITAN.NS", "asian paints": "ASIANPAINT.NS", "ultratech": "ULTRACEMCO.NS", "mahindra": "M&M.NS",
+    "eicher": "EICHERMOT.NS", "hero motocorp": "HEROMOTOCO.NS", "bajaj auto": "BAJAJ-AUTO.NS", "hindalco": "HINDALCO.NS",
+    "vedanta": "VEDL.NS", "hal": "HAL.NS", "bharat electronics": "BEL.NS", "dlf": "DLF.NS", "irctc": "IRCTC.NS",
+    "lic": "LICI.NS", "paytm": "PAYTM.NS", "yes bank": "YESBANK.NS", "pnb": "PNB.NS", "punjab national bank": "PNB.NS",
+    "bank of baroda": "BANKBARODA.NS", "tata power": "TATAPOWER.NS", "indigo": "INDIGO.NS", "suzlon": "SUZLON.NS",
+    "vodafone idea": "IDEA.NS", "bajaj finserv": "BAJAJFINSV.NS", "nestle": "NESTLEIND.NS", "britannia": "BRITANNIA.NS",
+    "apollo hospitals": "APOLLOHOSP.NS", "divi's": "DIVISLAB.NS", "grasim": "GRASIM.NS", "ioc": "IOC.NS", "gail": "GAIL.NS",
+}
+_ALIAS_RE = [(re.compile(r"(?<![A-Za-z])" + re.escape(k) + r"(?![A-Za-z])", re.I), v) for k, v in _ALIAS.items()]
+_SECW = [(re.compile(p, f), sec) for p, f, sec in [
+    (r"\bbank(s|ing)?\b|\bPSU banks?\b", re.I, "Bank"), (r"\bNBFC|\binsur(ance|ers?)\b", re.I, "NBFC & Insurance"),
+    (r"\bIT (stocks|sector|shares|index)\b|Nifty IT\b|\btech stocks\b|\bsoftware\b", 0, "IT"),
+    (r"\bpharma(ceuticals?)?\b|\bhealthcare\b|\bhospitals?\b", re.I, "Pharma & Healthcare"),
+    (r"\bauto(mobile)?s?\b|\bcar sales\b|\bEVs?\b", re.I, "Auto"), (r"\bFMCG\b", 0, "FMCG"),
+    (r"\bmetals?\b|\bsteel\b|\baluminium\b", re.I, "Metals & Mining"), (r"\brealty\b|\breal estate\b", re.I, "Realty"),
+    (r"\boil\b|\bcrude\b|\bnatural gas\b", re.I, "Oil & Gas"), (r"\bpower stocks?\b|\bsolar\b|\brenewable\b", re.I, "Power"),
+    (r"\bdefen[cs]e\b", re.I, "Defence"), (r"\btelecom\b", re.I, "Telecom & Media"), (r"\bcement\b", re.I, "Cement & Building"),
+    (r"\bchemicals?\b", re.I, "Chemicals & Paints"), (r"\brailways?\b", re.I, "Railways"),
+    (r"\binfra(structure)?\b|\bcapital goods\b", re.I, "Capital Goods & Infra")]]
+_THEMES = [(k, lab, re.compile(p, re.I)) for k, lab, p in [
+    ("fii", "FII / videshi nivesh", r"\bFII|\bFPI|foreign (institutional |portfolio )?investors?|foreign fund|outflows?|inflows?"),
+    ("rbi", "RBI / byaaj dar / mehngai", r"\bRBI\b|repo rate|rate (cut|hike)|interest rates?|\bMPC\b|inflation|\bCPI\b"),
+    ("global", "Global bazaar / US Fed", r"\bFed\b|Federal Reserve|Wall Street|\bDow\b|Nasdaq|US markets?|global (cues|markets?)|Asian markets?|Treasury yields?"),
+    ("crude", "Crude oil", r"crude|\bBrent\b|oil prices?|\bOPEC\b"),
+    ("rupee", "Rupee / dollar", r"rupee|\bforex\b|dollar index"),
+    ("results", "Quarterly results", r"\bQ[1-4]\b|quarterly|results?\b|earnings|net profit|\bPAT\b|revenue|margins?"),
+    ("trade", "Tariff / vyapar / geopolitics", r"tariffs?|trade (war|deal|talks)|sanctions?|geopolitic|\bwar\b|ceasefire|\bChina\b|\bTrump\b"),
+    ("policy", "Sarkar / policy / SEBI", r"\bBudget\b|\bGST\b|\bSEBI\b|government|policy|regulat|\bPLI\b|disinvest"),
+    ("ipo", "IPO / fund raising", r"\bIPO\b|\bQIP\b|stake sale|block deal|\bOFS\b|fund ?raising"),
+    ("broker", "Brokerage rating / target", r"upgrade|downgrade|target price|buy rating|sell rating|brokerage|initiates coverage"),
+    ("tech", "Chart / technical chaal", r"support level|resistance|breakout|record high|all-time high|52-week|oversold|overbought|sell-?off|profit.?booking")]]
+
+
+_PHRASES = [(re.compile(r"\b(rate|tax|duty|repo) cuts?\b", re.I), r"\1 relief boost"), (re.compile(r"\bcuts? (losses|deficit)\b", re.I), "trims losses"),
+            (re.compile(r"\b(rate|tax|duty) hikes?\b", re.I), r"\1 hike pressure")]
+
+
+def _senti(an, title):
+    """Sentiment: 'rate cut' jaise phrase market ke liye positive hote hain, pehle unhe seedha karo."""
+    if an is None:
+        return None
+    t = title
+    for rx, rep in _PHRASES:
+        t = rx.sub(rep, t)
+    return round(an.polarity_scores(t)["compound"], 2)
+
+
+def _tag(sc):
+    return "neu" if sc is None else "pos" if sc >= .2 else "neg" if sc <= -.2 else "neu"
+
+
+@app.route("/api/mktnews")
+def api_mktnews():
+    def gather():
+        from concurrent.futures import ThreadPoolExecutor
+        qs = ["Sensex Nifty today", "Indian stock market news", "Nifty Sensex FII selling OR buying",
+              "Nifty Bank IT Auto Pharma stocks today", "Sensex Nifty fall OR rally reason"]
+        items = []
+        with ThreadPoolExecutor(5) as ex:
+            futs = [ex.submit(google_news, q) for q in qs]
+            for f in futs:
+                try:
+                    items += f.result(timeout=12)
+                except Exception:
+                    pass
+        try:
+            for it in (yf.Ticker("^NSEI").news or [])[:15]:
+                c = it.get("content") or it
+                title = c.get("title")
+                if not title:
+                    continue
+                url = ((c.get("canonicalUrl") or {}).get("url") or (c.get("clickThroughUrl") or {}).get("url") or c.get("link") or "")
+                when = c.get("pubDate") or c.get("displayTime") or ""
+                if not when and it.get("providerPublishTime"):
+                    when = datetime.fromtimestamp(it["providerPublishTime"], timezone.utc).isoformat()
+                items.append({"title": title, "url": url if str(url).startswith(("http://", "https://")) else "",
+                              "pub": (c.get("provider") or {}).get("displayName") or c.get("publisher") or "", "t": str(when), "sum": ""})
+        except Exception:
+            pass
+        return items
+
+    def build():
+        an = analyzer()
+        seen, news = set(), []
+        for n in gather():
+            k = n["title"].lower()[:60]
+            if k in seen:
+                continue
+            seen.add(k)
+            t = n["title"]
+            sc = _senti(an, t)
+            rel = []
+            for rx, sym in _ALIAS_RE:
+                if rx.search(t) and sym not in rel:
+                    rel.append(sym)
+            secs = [sec for rx, sec in _SECW if rx.search(t)][:2]
+            news.append({"title": t, "url": n.get("url", ""), "pub": n.get("pub", ""), "t": str(n.get("t", "")), "s": sc, "tag": _tag(sc),
+                         "rel": rel[:4], "secs": secs, "th": [k for k, _, rx in _THEMES if rx.search(t)]})
+        news.sort(key=lambda n: n["t"], reverse=True)
+        news = news[:45]
+        # themes: kin wajahon par sabse zyada charcha
+        themes = []
+        for k, lab, _ in _THEMES:
+            its = [n for n in news if k in n["th"]]
+            if not its:
+                continue
+            sv = [n["s"] for n in its if n["s"] is not None]
+            av = sum(sv) / len(sv) if sv else 0.0
+            themes.append({"key": k, "label": lab, "count": len(its), "avg": round(av, 2),
+                           "dir": "pos" if av >= .1 else "neg" if av <= -.1 else "mix"})
+        themes.sort(key=lambda t: -t["count"])
+        # market ki chaal
+        idx = {}
+        try:
+            qs = quotes(["^NSEI", "^BSESN", "^NSEBANK", "^INDIAVIX"])
+            idx = {k: qs[k] for k in qs}
+        except Exception:
+            pass
+        try:
+            stats, rows, last = _sector_stats()
+        except Exception:
+            stats, rows = [], []
+        nf = (idx.get("^NSEI") or {}).get("chg")
+        if nf is None and stats:
+            nf = sum((x["d"] or 0) for x in stats) / len(stats)
+        mood = "teji" if (nf or 0) >= .3 else "mandi" if (nf or 0) <= -.3 else "sapaat"
+        why = []
+        if idx.get("^NSEI"):
+            why.append("Nifty 50 %+.2f%%%s." % (idx["^NSEI"]["chg"], (", Sensex %+.2f%%" % idx["^BSESN"]["chg"]) if idx.get("^BSESN") else ""))
+        if stats:
+            top = [x for x in stats if (x["d"] or 0) > 0][:2]
+            bot = [x for x in stats[::-1] if (x["d"] or 0) < 0][:2]
+            if top:
+                why.append("Sabse mazboot sector: " + ", ".join("%s (%+.1f%%)" % (x["name"], x["d"]) for x in top) + ".")
+            if bot:
+                why.append("Sabse kamzor sector: " + ", ".join("%s (%+.1f%%)" % (x["name"], x["d"]) for x in bot) + ".")
+            adv, dec = sum(x["adv"] for x in stats), sum(x["dec"] for x in stats)
+            if adv + dec:
+                why.append("Breadth: %d stocks badhe, %d ghate (%d liquid stocks me se)." % (adv, dec, len(rows)))
+        if idx.get("^INDIAVIX"):
+            v = idx["^INDIAVIX"]["price"]
+            why.append("India VIX %.1f: %s." % (v, "bazaar shaant hai" if v < 14 else "dar badh raha hai, utaar-chadhav zyada" if v >= 20 else "dar normal hai"))
+        pool = [t for t in themes if t["count"] >= 2] or themes
+        want = "neg" if mood == "mandi" else "pos" if mood == "teji" else None
+        main = [t for t in pool if want and t["dir"] == want][:3] or pool[:3]
+        if main:
+            lab = ", ".join("%s (%d khabrein)" % (t["label"], t["count"]) for t in main)
+            why.append(("Mandi" if mood == "mandi" else "Teji" if mood == "teji" else "Bazaar ki chaal") + " ke saath khabron me sabse zyada charcha: " + lab + ".")
+        else:
+            why.append("Abhi khabron me koi ek saaf wajah nahi mili; chaal mukhya roop se sector ke move se chal rahi hai.")
+        # related stocks ke live price
+        ids = list(dict.fromkeys(s for n in news for s in n["rel"]))[:50]
+        px = {}
+        try:
+            px = quotes(ids) if ids else {}
+        except Exception:
+            pass
+        return {"mood": mood, "nifty": nf, "idx": idx, "why": why, "themes": themes[:8], "news": news,
+                "px": {k: {"price": v["price"], "chg": v["chg"]} for k, v in px.items()}, "ai": an is not None}
+    try:
+        return reply(cached("mktnews", 600, build))
+    except Exception:
+        return err("News nahi mili, thodi der baad try karo.", 502)
 
 
 @app.route("/api/backtest")

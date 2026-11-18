@@ -70,6 +70,17 @@ td,th{padding:7px 4px;border-bottom:1px solid var(--bd);text-align:right}td:firs
 /* explore + lists */
 .search{display:flex;align-items:center;gap:10px;background:var(--fld);border-radius:14px;padding:0 14px;color:var(--mut)}
 .search input{border:0;background:none;padding:14px 0}
+.exseg{margin:12px 0 4px}.exseg button{flex:1;padding:9px 6px}
+.heat{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+.tile{border:0;border-radius:14px;padding:12px 12px 10px;text-align:left;min-height:88px;display:flex;flex-direction:column;justify-content:space-between;gap:6px;color:var(--tx);cursor:pointer}
+.tile b{font-size:14px;line-height:1.25}.tile .tp{font-size:21px;font-weight:700}.tile .tb{font-size:11px;opacity:.85}
+.legend2{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--mut);margin:12px 0 2px}.legend2 i{flex:1;height:9px;border-radius:5px}
+.sechd{display:flex;align-items:center;gap:10px;margin:12px 0 6px}
+.chg2{display:inline-block;min-width:64px;text-align:center;padding:3px 8px;border-radius:8px;font-size:13px;font-weight:600;margin-top:2px}
+.moodbox .vd2{font-size:26px;font-weight:800}.whyl{margin:4px 0 0;padding-left:18px;font-size:14px}.whyl li{margin:3px 0}
+.dot2{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--y);margin-right:4px}.dot2.g{background:var(--g)}.dot2.r{background:var(--r)}
+.nwc{padding:14px}.nwt{display:block;color:var(--tx);text-decoration:none;font-weight:600;font-size:15px;line-height:1.35;margin-bottom:4px}
+.nwtag{margin-top:8px;display:flex;align-items:center;gap:8px}.chip.sc{background:rgba(201,129,0,.12);color:var(--y)}
 .idxs{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
 .idx{flex:0 0 auto;min-width:138px;border:1px solid var(--bd);border-radius:14px;padding:12px}
 .idx b{display:block;font-size:16px;margin:2px 0}
@@ -167,11 +178,16 @@ a.news{display:block;color:inherit;text-decoration:none}
     <div id="st" class="note" style="margin:8px 2px"></div>
     <div id="sug"></div>
     <div id="exBody">
+      <div class="seg exseg" id="exseg"><button class="on" data-act="exsub" data-k="ov">Market</button><button data-act="exsub" data-k="sec">Sectors</button><button data-act="exsub" data-k="news">News</button></div>
+      <div id="exOv">
       <h3>Market</h3><div class="idxs" id="idxs"><div class="note">Load ho raha hai...</div></div>
       <div id="recW" hidden><h3>Recently viewed</h3><div class="chips" id="rec"></div></div>
-      <div class="seg"><button class="on" data-act="mv" data-m="gainers">Top gainers</button><button data-act="mv" data-m="losers">Top losers</button></div>
+      <div class="seg" id="mvseg"><button class="on" data-act="mv" data-m="gainers">Top gainers</button><button data-act="mv" data-m="losers">Top losers</button></div>
       <div id="movers"></div>
       <div class="note" style="margin-top:14px">Large cap stocks ka aaj ka move. Ye rule-based analysis hai, financial advice nahi.</div>
+      </div>
+      <div id="exSec" hidden></div>
+      <div id="exNews" hidden></div>
     </div>
   </section>
 
@@ -577,6 +593,89 @@ function drawEx(){
   $("idxs").innerHTML=d.indices.map(i=>`<div class="idx"><div class="note">${esc(i.name)}</div><b>${f0(i.price)}</b><div class="${cl(i.chg)}" style="font-size:13px">${pc(i.chg)}</div></div>`).join("")||`<div class="note">Index data abhi nahi mila.</div>`;
   $("movers").innerHTML=(d[mvKind]||[]).map(liRow).join("");
 }
+
+/* ---------- Sectors (teji / mandi heatmap) + Market news ---------- */
+let exSub="ov",SEC=null,secR="d",secName=null,secData=null,secSort="chg",NW=null,nwF="all",nwTh=null;
+const RNG={d:"Aaj",w:"1 Hafta",m:"1 Mahina"};
+function heatBg(v,sc){
+  sc=sc||(secR==="d"?2.5:secR==="w"?5:9);
+  if(v==null||isNaN(v)||Math.abs(v)<.08)return["var(--fld)","var(--tx)"];
+  const a=Math.min(1,Math.abs(v)/sc),rgb=v>0?"0,179,134":"235,91,60";
+  return[`rgba(${rgb},${(.16+.7*a).toFixed(2)})`,a>.55?"#fff":"var(--tx)"];
+}
+function exSubSet(k){
+  exSub=k;$("exOv").hidden=k!=="ov";$("exSec").hidden=k!=="sec";$("exNews").hidden=k!=="news";
+  document.querySelectorAll("#exseg button").forEach(b=>b.classList.toggle("on",b.dataset.k===k));
+  if(k==="sec")loadSectors();else if(k==="news")loadMkt();else loadExplore();
+}
+async function loadSectors(force){
+  if(secName){secLoad();return;}
+  if(!force&&SEC&&Date.now()-SEC.t<60000){drawSectors();return;}
+  if(!SEC)$("exSec").innerHTML='<div class="note" style="padding:16px 2px">Sector data aa raha hai (pehli baar 30-60 second lag sakte hain)...</div>';
+  try{SEC={t:Date.now(),d:await api("/api/sectors")};if(!secName)drawSectors();}
+  catch(e){$("exSec").innerHTML='<div class="note" style="padding:16px 2px">'+esc(errT(e))+'</div>';}
+}
+function drawSectors(){
+  const d=SEC.d,k=secR,L=d.sectors.slice().sort((a,b)=>(b[k]==null?-99:b[k])-(a[k]==null?-99:a[k]));
+  const up=L.filter(x=>(x[k]||0)>0).length,dn=L.filter(x=>(x[k]||0)<0).length;
+  $("exSec").innerHTML=`<div class="seg" id="secr">${["d","w","m"].map(x=>`<button class="${x===k?"on":""}" data-act="secr" data-r="${x}">${RNG[x]}</button>`).join("")}</div>
+  <div class="note" style="margin:6px 2px 0"><b class="g">${up} sector teji me</b> | <b class="r">${dn} mandi me</b> | ${d.total} liquid stocks ka average, ${esc(d.asOf)}${d.open?" (live)":""}</div>
+  <div class="heat">${L.map(x=>{const c=heatBg(x[k]);return `<button class="tile" style="background:${c[0]};color:${c[1]}" data-act="secopen" data-s="${esc(x.name)}"><b>${esc(x.name)}</b><span class="tp">${pc(x[k])}</span><span class="tb">↑${x.adv} ↓${x.dec} | ${x.n} stocks</span></button>`;}).join("")}</div>
+  <div class="legend2"><span>Mandi</span><i style="background:linear-gradient(90deg,rgba(235,91,60,.86),rgba(235,91,60,.2),var(--fld),rgba(0,179,134,.2),rgba(0,179,134,.86))"></i><span>Teji</span></div>
+  <div class="note" style="margin-top:6px">Rang jitna gehra, move utna bada (hara = teji, lal = mandi). Sector par tap karo to uske stocks live price ke saath dikhenge. Average sab stocks ko barabar maan kar nikala hai.</div>`;
+}
+async function openSector(name){
+  secName=name;secData=null;secSort="chg";
+  $("exSec").innerHTML=`<div class="sechd"><button class="mini" data-act="secback">← Sectors</button><h3 style="margin:0">${esc(name)}</h3></div><div class="note" style="padding:12px 2px">Stocks aa rahe hain...</div>`;
+  window.scrollTo(0,0);secLoad();
+}
+async function secLoad(){
+  const nm=secName;
+  try{const d=await api("/api/sector?name="+encodeURIComponent(nm));if(secName!==nm)return;secData=d;drawSecDetail();}
+  catch(e){if(secName===nm)$("exSec").innerHTML=secHead()+'<div class="note">'+esc(errT(e))+'</div>';}
+}
+function secHead(){
+  const a=secData&&secData.agg;
+  return `<div class="sechd"><button class="mini" data-act="secback">← Sectors</button><h3 style="margin:0">${esc(secName)}</h3></div>`+(a?`<div class="rets"><div>Aaj<br><b class="${cl(a.d)}">${pc(a.d)}</b></div><div>1 Hafta<br><b class="${cl(a.w)}">${pc(a.w)}</b></div><div>1 Mahina<br><b class="${cl(a.m)}">${pc(a.m)}</b></div><div>Teji / Mandi<br><b><span class="g">↑${a.adv}</span> <span class="r">↓${a.dec}</span></b></div></div>`:"");
+}
+function drawSecDetail(){
+  if(!secData)return;
+  const L=secData.stocks.slice();
+  if(secSort==="chg")L.sort((a,b)=>(b.chg==null?-99:b.chg)-(a.chg==null?-99:a.chg));
+  else if(secSort==="loss")L.sort((a,b)=>(a.chg==null?99:a.chg)-(b.chg==null?99:b.chg));
+  else L.sort((a,b)=>a.name.localeCompare(b.name));
+  const row=x=>{const c=heatBg(x.chg,2.5);return `<div class="li" data-act="open" data-id="${esc(x.id)}" data-name="${esc(x.name)}"><button class="ln">${esc(x.name)}<div class="note">${esc(x.cap||"")}${x.w!=null?" | 1 hafta "+pc(x.w):""}</div></button><span class="lp"><b>${fx(x.price)}</b><span class="chg2" style="background:${c[0]};color:${c[1]}">${pc(x.chg)}</span></span></div>`;};
+  $("exSec").innerHTML=secHead()+`<div class="seg" id="secs">${[["chg","Top gainers"],["loss","Top losers"],["az","A-Z"]].map(z=>`<button class="${secSort===z[0]?"on":""}" data-act="secsort" data-k="${z[0]}">${z[1]}</button>`).join("")}</div>
+  <div class="note" style="margin:4px 2px 6px">${L.length} stocks | ${secData.open?"live price (har minute refresh)":"aakhri close ka price"}. Kisi bhi stock par tap karke poora analysis dekho.</div><div class="card" style="padding:2px 14px">${L.map(row).join("")}</div>`;
+}
+const agoT=t=>{const m=Math.round((Date.now()-new Date(t).getTime())/60000);if(isNaN(m)||m<0)return"";return m<60?Math.max(1,m)+" min pehle":m<1440?Math.round(m/60)+" ghante pehle":Math.round(m/1440)+" din pehle";};
+async function loadMkt(force){
+  if(!force&&NW&&Date.now()-NW.t<300000){drawMkt();return;}
+  if(!NW)$("exNews").innerHTML='<div class="note" style="padding:16px 2px">Khabrein aur market ki wajah aa rahi hai (pehli baar 20-40 second lag sakte hain)...</div>';
+  try{NW={t:Date.now(),d:await api("/api/mktnews")};drawMkt();}
+  catch(e){$("exNews").innerHTML='<div class="note" style="padding:16px 2px">'+esc(errT(e))+'</div>';}
+}
+function mkCard(n){
+  const tg=n.tag==="pos"?["Positive","g","Bazaar / stock ke liye achhi khabar"]:n.tag==="neg"?["Negative","r","Dabaav banane wali khabar"]:["Neutral","y","Seedha asar saaf nahi"];
+  const ok=n.url&&/^https?:\/\//.test(n.url),px=NW.d.px||{};
+  const chips=n.secs.map(s=>`<button class="chip sc" data-act="secgo" data-s="${esc(s)}">${esc(s)}</button>`).join("")+n.rel.map(id=>{const q=px[id],nm=id.replace(".NS","");return `<button class="chip" data-act="open" data-id="${esc(id)}" data-name="${esc(nm)}">${esc(nm)}${q?` <span class="${cl(q.chg)}">${pc(q.chg)}</span>`:""}</button>`;}).join("");
+  return `<div class="card nwc">${ok?`<a class="nwt" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a>`:`<div class="nwt">${esc(n.title)}</div>`}<div class="note">${esc(n.pub||"")}${n.t?" | "+esc(agoT(n.t)):""}</div>
+  <div class="nwtag"><span class="pill ${tg[1]}">${tg[0]}${n.s!=null?" ("+(n.s>0?"+":"")+n.s.toFixed(1)+")":""}</span><span class="note">${tg[2]}</span></div>${chips?`<div class="chips" style="margin-top:8px">${chips}</div>`:""}</div>`;
+}
+function drawMkt(){
+  const d=NW.d,mt={teji:"TEJI",mandi:"MANDI",sapaat:"SAPAAT (flat)"}[d.mood],mc={teji:"g",mandi:"r",sapaat:"y"}[d.mood];
+  const L=d.news.filter(n=>(nwF==="all"||n.tag===nwF)&&(!nwTh||n.th.includes(nwTh)));
+  const th=(d.themes||[]).find(t=>t.key===nwTh);
+  $("exNews").innerHTML=`<div class="card moodbox" style="margin-top:12px"><div class="note">Aaj bazaar</div><div class="vd2 ${mc}">${mt}${d.nifty!=null?` <span style="font-size:15px;font-weight:600">Nifty ${pc(d.nifty)}</span>`:""}</div>
+    <div class="note" style="margin:8px 0 2px"><b>Kis wajah se?</b> (khabron ke shabdon aur sector ke move se nikala andaza, pakka karan nahi)</div><ul class="whyl">${d.why.map(w=>"<li>"+esc(w)+"</li>").join("")}</ul></div>
+  ${(d.themes||[]).length?`<h3>Kin wajahon par charcha ho rahi hai</h3><div class="chips">${d.themes.map(t=>`<button class="chip ${nwTh===t.key?"on":""}" data-act="nwth" data-k="${t.key}"><span class="dot2 ${t.dir==="pos"?"g":t.dir==="neg"?"r":""}"></span>${esc(t.label)} (${t.count})</button>`).join("")}</div><div class="note" style="margin-top:6px"><span class="dot2 g"></span>positive khabrein <span class="dot2 r" style="margin-left:8px"></span>negative <span class="dot2" style="margin-left:8px"></span>mili-juli</div>`:""}
+  <div class="seg" id="nwseg">${[["all","Sab"],["pos","Positive"],["neg","Negative"]].map(z=>`<button class="${nwF===z[0]?"on":""}" data-act="nwf" data-k="${z[0]}">${z[1]}</button>`).join("")}</div>
+  ${th?`<div class="note" style="margin:2px 2px 8px">Filter: ${esc(th.label)} (dubara tap karke hatao)</div>`:""}
+  ${d.ai?"":`<div class="note" style="margin:2px 2px 8px">Sentiment engine abhi available nahi, isliye sab khabrein Neutral dikh sakti hain.</div>`}
+  ${L.length?L.map(mkCard).join(""):'<div class="card note">Is filter me koi khabar nahi.</div>'}
+  <div class="note" style="margin-top:8px">Khabrein Google News aur Yahoo se aati hain. Positive/Negative note shabdon ke tone se nikala hai (andaza), financial advice nahi.</div>`;
+}
+
 function recDraw(){
   $("recW").hidden=!recent.length;
   $("rec").innerHTML=recent.map(r=>`<button class="chip" data-act="open" data-id="${esc(r.id)}" data-name="${esc(r.name)}">${esc(r.name)}</button>`).join("");
@@ -928,7 +1027,15 @@ document.addEventListener("click",e=>{
   const t=e.target.closest("[data-act]");if(!t)return;const a=t.dataset.act,d=t.dataset;
   if(a==="nav")go(d.n);
   else if(a==="open"||a==="peer"||a==="wopen"){if(a==="wopen"&&e.target.closest(".x"))return;openStock({id:d.id,name:d.name});}
-  else if(a==="mv"){mvKind=d.m;document.querySelectorAll(".seg button").forEach(b=>b.classList.toggle("on",b.dataset.m===mvKind));if(EX)drawEx();}
+  else if(a==="mv"){mvKind=d.m;document.querySelectorAll("#mvseg button").forEach(b=>b.classList.toggle("on",b.dataset.m===mvKind));if(EX)drawEx();}
+  else if(a==="exsub")exSubSet(d.k);
+  else if(a==="secr"){secR=d.r;drawSectors();}
+  else if(a==="secopen")openSector(d.s);
+  else if(a==="secback"){secName=null;secData=null;loadSectors();}
+  else if(a==="secsort"){secSort=d.k;drawSecDetail();}
+  else if(a==="secgo"){exSubSet("sec");openSector(d.s);}
+  else if(a==="nwf"){nwF=d.k;drawMkt();}
+  else if(a==="nwth"){nwTh=nwTh===d.k?null:d.k;drawMkt();}
   else if(a==="sstar")openPick(d.id,d.name,"");
   else if(a==="star")openPick(S.id,S.name,S.ticker);
   else if(a==="gosearch")leaveStock(()=>{go("explore");$("q").focus();});
@@ -970,6 +1077,7 @@ setInterval(()=>{
   if(document.hidden||!marketOpen())return;alertTick();
   if(!$("stock").hidden&&S&&S.price){liveTick();}
   else if(!$("s-watch").hidden)wlRefresh();
+  else if(!$("s-explore").hidden&&exSub==="sec"&&secName)secLoad();
 },60000);
 if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
 
