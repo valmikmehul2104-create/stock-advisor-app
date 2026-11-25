@@ -70,6 +70,22 @@ td,th{padding:7px 4px;border-bottom:1px solid var(--bd);text-align:right}td:firs
 /* explore + lists */
 .search{display:flex;align-items:center;gap:10px;background:var(--fld);border-radius:14px;padding:0 14px;color:var(--mut)}
 .search input{border:0;background:none;padding:14px 0}
+.ideac{padding:0;overflow:hidden}
+.ihd{display:flex;align-items:center;gap:8px;padding:10px 14px;color:#fff;font-weight:700}
+.ideac.g .ihd{background:var(--g)}.ideac.r .ihd{background:var(--r)}.ideac.y .ihd{background:#c98100}
+.ick{width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.28);display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+.ihd b{font-size:17px}.ilb{font-weight:500;font-size:13px;opacity:.92;border-left:1px solid rgba(255,255,255,.55);padding-left:8px}
+.ipill{margin-left:auto;font-size:11px;background:rgba(255,255,255,.24);border-radius:10px;padding:3px 9px;font-weight:600}
+.ibody{padding:12px 14px 14px}.itop{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ittl{font-size:18px;font-weight:800;line-height:1.25}
+.ico{flex:0 0 auto;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;background:rgba(0,179,134,.14)}
+.ideac.r .ico{background:rgba(235,91,60,.14)}.ideac.y .ico{background:rgba(201,129,0,.14)}
+.ilv{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:10px 0 6px}
+.ilv div{background:var(--fld);border-radius:10px;padding:7px 4px;text-align:center;font-size:11px;color:var(--mut)}.ilv b{display:block;font-size:13.5px;color:var(--tx);margin-top:1px}
+.iwhy{margin:6px 0 0;padding-left:18px;font-size:13px}.iwhy li{margin:2px 0}
+.itrk{font-size:12px;color:var(--mut);margin-top:9px;line-height:1.5}
+.trow{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd);font-size:13px}.trow:last-child{border:0}
+.trow .note{font-size:11px}
 .exseg{margin:12px 0 4px}.exseg button{flex:1;padding:9px 6px}
 .heat{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
 .tile{border:0;border-radius:14px;padding:12px 12px 10px;text-align:left;min-height:88px;display:flex;flex-direction:column;justify-content:space-between;gap:6px;color:var(--tx);cursor:pointer}
@@ -178,7 +194,7 @@ a.news{display:block;color:inherit;text-decoration:none}
     <div id="st" class="note" style="margin:8px 2px"></div>
     <div id="sug"></div>
     <div id="exBody">
-      <div class="seg exseg" id="exseg"><button class="on" data-act="exsub" data-k="ov">Market</button><button data-act="exsub" data-k="sec">Sectors</button><button data-act="exsub" data-k="news">News</button></div>
+      <div class="seg exseg" id="exseg"><button class="on" data-act="exsub" data-k="ov">Market</button><button data-act="exsub" data-k="idea">Ideas</button><button data-act="exsub" data-k="sec">Sectors</button><button data-act="exsub" data-k="news">News</button></div>
       <div id="exOv">
       <h3>Market</h3><div class="idxs" id="idxs"><div class="note">Load ho raha hai...</div></div>
       <div id="recW" hidden><h3>Recently viewed</h3><div class="chips" id="rec"></div></div>
@@ -186,6 +202,7 @@ a.news{display:block;color:inherit;text-decoration:none}
       <div id="movers"></div>
       <div class="note" style="margin-top:14px">Large cap stocks ka aaj ka move. Ye rule-based analysis hai, financial advice nahi.</div>
       </div>
+      <div id="exIdea" hidden></div>
       <div id="exSec" hidden></div>
       <div id="exNews" hidden></div>
     </div>
@@ -264,6 +281,7 @@ a.news{display:block;color:inherit;text-decoration:none}
   </div>
   <div class="sscroll" id="sscroll">
     <div class="card" style="margin:6px 16px 10px;padding:12px 12px 8px"><h2>Chart (aakhri 6 mahine)</h2><div id="chart"><div class="cph">Chart load ho raha hai...</div></div></div>
+    <div class="card ideac" id="idea" hidden style="margin:0 16px 10px"></div>
     <div id="live"></div>
     <nav class="tabs2" id="tabs2"><button class="on" data-act="tab" data-t="ov">Overview</button><button data-act="tab" data-t="tc">Technicals</button><button data-act="tab" data-t="pt">Patterns</button><button data-act="tab" data-t="nw">News</button><button data-act="tab" data-t="ev">Events</button></nav>
 
@@ -280,7 +298,7 @@ a.news{display:block;color:inherit;text-decoration:none}
       <div class="card" id="peers" hidden></div>
       <div class="note">Ye rule-based analysis hai, financial advice nahi. Paise lagane se pehle apna research karein ya advisor se poochein.</div>
     </div>
-    <div class="pane" id="p-tc" hidden><div class="card" id="tech"></div></div>
+    <div class="pane" id="p-tc" hidden><div class="card" id="tech"></div><div class="card" id="sigh"></div></div>
     <div class="pane" id="p-pt" hidden></div>
     <div class="pane" id="p-nw" hidden></div>
     <div class="pane" id="p-ev" hidden></div>
@@ -604,9 +622,9 @@ function heatBg(v,sc){
   return[`rgba(${rgb},${(.16+.7*a).toFixed(2)})`,a>.55?"#fff":"var(--tx)"];
 }
 function exSubSet(k){
-  exSub=k;$("exOv").hidden=k!=="ov";$("exSec").hidden=k!=="sec";$("exNews").hidden=k!=="news";
+  exSub=k;$("exOv").hidden=k!=="ov";$("exIdea").hidden=k!=="idea";$("exSec").hidden=k!=="sec";$("exNews").hidden=k!=="news";
   document.querySelectorAll("#exseg button").forEach(b=>b.classList.toggle("on",b.dataset.k===k));
-  if(k==="sec")loadSectors();else if(k==="news")loadMkt();else loadExplore();
+  if(k==="idea")loadIdeas();else if(k==="sec")loadSectors();else if(k==="news")loadMkt();else loadExplore();
 }
 async function loadSectors(force){
   if(secName){secLoad();return;}
@@ -676,6 +694,66 @@ function drawMkt(){
   <div class="note" style="margin-top:8px">Khabrein Google News aur Yahoo se aati hain. Positive/Negative note shabdon ke tone se nikala hai (andaza), financial advice nahi.</div>`;
 }
 
+
+/* ---------- Trade ideas: BUY / SELL signal, chart tags aur Ideas feed ---------- */
+let IDS=null,idT="buy",idCap="all";
+async function loadSig(my){
+  try{const d=await api("/api/signals?symbol="+encodeURIComponent(S.id));if(my!==tok)return;S.sig=d;}
+  catch(e){if(my!==tok)return;S.sig={err:errT(e)};}
+  drawAll();
+}
+const ipc=v=>v==null||isNaN(v)?"-":(v>=0?"+":"")+v.toFixed(1)+"%";
+function recLine(st){
+  if(!st||!st.n)return"";
+  return `Is rule ka is stock par record (pichhle 2 saal, backtest): ${st.n} trade, ${st.win.toFixed(0)}% me profit, average ${ipc(st.avg)} per trade${st.bh!=null?` (sirf kharid ke rakhne par ${ipc(st.bh)})`:""}.`;
+}
+function ideaC(){
+  const el=$("idea");
+  if(!S||!S.sig||S.sig.err||!S.sig.idea){el.hidden=true;return;}
+  const I=S.sig.idea,st=S.sig.stats||{},k={BUY:"g",SELL:"r",WAIT:"y"}[I.type],ic={BUY:"📈",SELL:"📉",WAIT:"⏳"}[I.type];
+  const ttl=I.type==="BUY"?`Potential upside ahead: ${ipc(I.up1)} se ${ipc(I.up2)}`:I.type==="SELL"?"Girawat ka risk: naya mat kharido":I.trigger?`Breakout ka intezaar: ${fx(I.trigger,0)} ke upar close`:"Abhi koi trade idea nahi";
+  const lv=I.entry&&I.sl?`<div class="ilv"><div>${I.type==="WAIT"?"Trigger":"Entry"}<b>${fx(I.entry,0)}</b></div><div>Stop-loss<b class="r">${fx(I.sl,0)}</b></div><div>Target 1<b class="g">${fx(I.t1,0)}</b></div><div>Target 2<b class="g">${fx(I.t2,0)}</b></div></div>`:"";
+  const pnl=I.type==="BUY"&&I.pnl!=null?`<div class="note">Entry (${esc(I.date||"")}) se abhi ${ipc(I.pnl)}${I.risk!=null?" | stop-loss tak risk "+I.risk.toFixed(1)+"%":""}</div>`:"";
+  el.hidden=false;el.className="card ideac "+k;
+  el.innerHTML=`<div class="ihd"><span class="ick">✓</span><b>${I.type}</b><span class="ilb">Trade Idea</span><span class="ipill">Rules-based</span></div>
+  <div class="ibody"><div class="itop"><div><div class="ittl">${esc(ttl)}</div><div class="note" style="margin-top:3px">${esc(I.status)}</div></div><div class="ico">${ic}</div></div>${pnl}${lv}
+  ${(I.why&&I.why.length)?`<ul class="iwhy">${I.why.slice(0,3).map(w=>"<li>"+esc(w)+"</li>").join("")}</ul>`:""}
+  <div class="itrk">${esc(recLine(st))}${st.n?" ":""}<a href="#" data-act="tab" data-t="tc" style="color:var(--ac)">Poori signal history dekho</a></div>
+  <div class="itrk">Ye breakout + volume + trend ke rules se bana signal hai, SEBI-registered research analyst ki salah nahi. Paise lagane se pehle apna research karein aur stop-loss zaroor lagayein.</div></div>`;
+}
+function sighC(){
+  const el=$("sigh");
+  if(!S||!S.sig){el.innerHTML='<h2>Signal history</h2><div class="note">Signal nikal raha hu...</div>';return;}
+  if(S.sig.err){el.innerHTML='<h2>Signal history</h2><div class="note">'+esc(S.sig.err)+'</div>';return;}
+  const st=S.sig.stats||{},T=S.sig.trades.slice().reverse();
+  el.innerHTML=`<h2>BUY / SELL signal history (pichhle 2 saal)</h2>
+   ${st.n?`<div class="rets"><div>Trades<br><b>${st.n}</b></div><div>Profit me<br><b>${st.win.toFixed(0)}%</b></div><div>Average<br><b class="${cl(st.avg)}">${ipc(st.avg)}</b></div><div>Sab trade jod ke<br><b class="${cl(st.total)}">${ipc(st.total)}</b></div><div>Sirf kharid ke rakho<br><b class="${cl(st.bh)}">${ipc(st.bh)}</b></div></div>`:'<div class="note">Is stock par pichhle 2 saal me rule se koi BUY signal nahi bana.</div>'}
+   ${T.map(t=>`<div class="trow"><span><b class="g">BUY</b> ${esc(t.bd)} @ ${fx(t.bp,0)}<br>${t.open?'<span class="y">Abhi open (SELL signal baaki)</span>':'<b class="r">SELL</b> '+esc(t.sd)+" @ "+fx(t.sp,0)+'<div class="note">'+esc(t.sw)+" | "+t.days+" din</div>"}</span><b class="${t.open?"y":cl(t.ret)}">${t.open?"OPEN":ipc(t.ret)}</b></div>`).join("")}
+   <div class="note" style="margin-top:8px">Rule: BUY = purane resistance ke upar close + volume zyada + score 60+. SELL = stop-loss, Target 2, Target 1 ke baad 20 EMA ke neeche band, ya 40 din ka time exit. Ye pichhle data par rule chalane ka nateeja hai (backtest): asli trading me slippage, charges aur tax alag hote hain aur future ki guarantee nahi.</div>`;
+}
+async function loadIdeas(force){
+  if(!force&&IDS&&Date.now()-IDS.t<120000){drawIdeas();return;}
+  if(!IDS)$("exIdea").innerHTML='<div class="note" style="padding:16px 2px">Aaj ke trade ideas ban rahe hain (pehli baar 30-60 second lag sakte hain)...</div>';
+  try{IDS={t:Date.now(),d:await api("/api/ideas")};drawIdeas();}
+  catch(e){$("exIdea").innerHTML='<div class="note" style="padding:16px 2px">'+esc(errT(e))+'</div>';}
+}
+function ideaCard(x){
+  const B=x.type==="BUY",k=B?"g":"r";
+  return `<div class="card ideac ${k}" data-act="open" data-id="${esc(x.id)}" data-name="${esc(x.name)}" style="margin-top:12px;cursor:pointer"><div class="ihd"><span class="ick">${B?"✓":"!"}</span><b>${B?"BUY":"SELL / EXIT"}</b><span class="ilb">Trade Idea</span><span class="ipill">Swing 5-15 din</span></div>
+  <div class="ibody"><div class="itop"><div><div style="font-size:17px;font-weight:700">${esc(x.name)} <span class="note">${esc(x.cap||"")}${x.sector?" | "+esc(x.sector):""}</span></div><div class="note">${fx(x.price)} <span class="${cl(x.chg)}">${pc(x.chg)}</span> | Score ${x.score}/100</div></div><div class="ico">${B?"📈":"📉"}</div></div>
+  <div class="ittl" style="margin-top:8px">${B?"Potential upside ahead: "+ipc(x.up1)+" se "+ipc(x.up2):"Girawat ka risk: "+ipc(x.up1)+" se "+ipc(x.up2)}</div>
+  <div class="ilv"><div>${B?"Entry":"Ab ka bhaav"}<b>${fx(B?x.entry:x.price,0)}</b></div><div>${B?"Stop-loss":"Stop (upar)"}<b class="r">${fx(x.sl,0)}</b></div><div>Target 1<b class="${B?"g":"r"}">${fx(x.t1,0)}</b></div><div>Target 2<b class="${B?"g":"r"}">${fx(x.t2,0)}</b></div></div>
+  <ul class="iwhy">${(x.why||[]).slice(0,3).map(w=>"<li>"+esc(w)+"</li>").join("")}</ul><div class="itrk">Risk : Reward = 1 : ${x.rr.toFixed(1)}. Tap karke chart aur signal history dekho.</div></div></div>`;
+}
+function drawIdeas(){
+  const d=IDS.d,L=(d[idT]||[]).filter(x=>idCap==="all"||(x.cap||"").toLowerCase()===idCap);
+  $("exIdea").innerHTML=`<div class="seg" id="idseg"><button class="${idT==="buy"?"on":""}" data-act="idt" data-k="buy">BUY ideas (${d.buy.length})</button><button class="${idT==="sell"?"on":""}" data-act="idt" data-k="sell">SELL / Exit (${d.sell.length})</button></div>
+   <div class="chips" style="margin:10px 0 2px">${[["all","Sab"],["large","Large cap"],["mid","Mid cap"],["small","Small cap"]].map(z=>`<button class="chip ${idCap===z[0]?"on":""}" data-act="idcap" data-k="${z[0]}">${z[1]}</button>`).join("")}</div>
+   <div class="note" style="margin:6px 2px 0">${d.checked} stocks me se ${d.asOf} tak ke ideas${d.open?" (market chalu)":""}. ${idT==="buy"?"BUY idea = naya breakout + zyada volume + mazboot trend.":"SELL/Exit idea = breakdown + kamzor trend. Cash market me short nahi hota: holding ho to exit/stop-loss dekho, naya mat kharido."}</div>
+   ${L.length?L.map(ideaCard).join(""):'<div class="card note" style="margin-top:12px">Abhi is list me koi idea nahi. Market band ho ya breakout na ho to khali rehta hai.</div>'}
+   <div class="note" style="margin-top:12px">Ye rule-based (breakout, volume, trend) ideas hain, SEBI-registered research analyst ki salah nahi. Har idea me stop-loss zaroor lagayein, galat signal bhi aate hain.</div>`;
+}
+
 function recDraw(){
   $("recW").hidden=!recent.length;
   $("rec").innerHTML=recent.map(r=>`<button class="chip" data-act="open" data-id="${esc(r.id)}" data-name="${esc(r.name)}">${esc(r.name)}</button>`).join("");
@@ -722,7 +800,7 @@ async function analyse(x){
     Object.assign(S,{name:d.name||S.name,ticker:d.symbol,price:d.price,chg:d.chg,asOf:d.asOf,hi:d.hi,lo:d.lo,dma:d.dma,dma200:d.dma200,
       sent:d.sentiment,tgt:d.target,mcap:d.mcap,sector:d.sector,industry:d.industry,exch:d.exch,ceo:d.ceo,emp:d.emp,web:d.web,
       desc:d.desc,ret:d.ret||{},rat:d.rat&&d.rat.length?d.rat:null,bars:d.bars||[]});
-    S.upd=null;indic();applyLive();drawAll();loadPeers(my);loadNews();loadEvents();
+    S.upd=null;indic();applyLive();drawAll();loadPeers(my);loadNews();loadEvents();loadSig(my);
   }catch(e){if(my!==tok)return;S.barErr=errT(e);drawAll();}
 }
 async function loadPeers(my){
@@ -760,10 +838,22 @@ function chart(A){
   if(A)labs.push({y:(Y(A.bz1)+Y(A.bz2))/2,t:"Buy "+Math.round(A.bz1)+"-"+Math.round(A.bz2),k:"g"});
   if(c.length>=50){let p="";for(let i=49;i<c.length;i++){const m=c.slice(i-49,i+1).reduce((a,v)=>a+v,0)/50;p+=X(i)+","+Y(m)+" ";}s+=`<polyline points="${p}" fill="none" stroke="var(--y)" stroke-width="1" opacity=".85"/>`;}
   s+=`<polyline points="${c.map((v,i)=>X(i)+","+Y(v)).join(" ")}" fill="none" stroke="var(--tx)" stroke-width="1.6"/><circle cx="${X(c.length-1)}" cy="${Y(c[c.length-1])}" r="3" fill="var(--tx)"/>`;
+  if(S.sig&&S.sig.trades&&S.sig.trades.length){  // rule se bane BUY / SELL points
+    const ix={};b.forEach((z,i)=>{ix[z.d]=i;});const tg=[];
+    S.sig.trades.forEach(t=>{if(ix[t.bd]!==undefined)tg.push({i:ix[t.bd],p:t.bp,k:"b"});if(!t.open&&t.sd&&ix[t.sd]!==undefined)tg.push({i:ix[t.sd],p:t.sp,k:"s"});});
+    tg.sort((a,c)=>a.i-c.i);const last={},y0=pt+12,y1=H-pb-vh-10;
+    tg.forEach(g=>{
+      const x=X(g.i),y=Y(g.p),B=g.k==="b",cx=Math.max(17,Math.min(x,W-pr-17)),c=B?"var(--g)":"var(--r)";
+      let ty=B?y+24:y-24;const q=last[g.k];
+      if(q&&Math.abs(cx-q.x)<34&&Math.abs(ty-q.y)<16)ty=B?q.y+16:q.y-16;
+      ty=Math.max(y0,Math.min(y1,ty));last[g.k]={x:cx,y:ty};
+      s+=`<line x1="${x}" y1="${y}" x2="${cx}" y2="${ty+(B?-7:7)}" stroke="${c}" stroke-width="1"/><circle cx="${x}" cy="${y}" r="2.6" fill="${c}"/><rect x="${cx-16}" y="${ty-7}" width="32" height="14" rx="3.5" fill="${c}"/><text x="${cx}" y="${ty+3.5}" text-anchor="middle" style="fill:#fff;font-size:9px;font-weight:700">${B?"BUY":"SELL"}</text>`;
+    });
+  }
   labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<11)labs[i].y=labs[i-1].y+11;
   labs.forEach(l=>{s+=`<text x="${W-pr+4}" y="${l.y+3}" style="fill:${col[l.k]}">${esc(l.t)}</text>`;});
   s+=`<text x="${pl}" y="${H-6}">${esc(b[0].d)}</text><text x="${W-pr}" y="${H-6}" text-anchor="end">${esc(b[b.length-1].d)}</text></svg>`;
-  return s+`<div class="note">Hara band: buy zone. Hare dashed: sell targets. Lal: stop-loss. Peela: 50 din average. Neela dotted: aapka kharid price. Peela dotted Brk: breakout level. Neeche ke bars: volume.</div>`;
+  return s+`<div class="note">Hara band: buy zone. Hare dashed: sell targets. Lal: stop-loss. Peela: 50 din average. Neela dotted: aapka kharid price. Peela dotted Brk: breakout level. Neeche ke bars: volume. BUY / SELL tag: rule se bane pichhle signal (backtest, hindsight se bana chart hai, asli trading me slippage aur galat signal bhi hote hain).</div>`;
 }
 function drawChart(){$("chart").innerHTML=S.bars.length||S.barErr?chart(calc()):'<div class="cph">Chart load ho raha hai...</div>';}
 
@@ -943,7 +1033,7 @@ function head(){
 }
 function drawAll(){
   if(!S)return;const A=calc();
-  head();drawChart();ai(A);drvC();horC(A);posC();ver(A);lev(A);whyC(A);techC();info();ratC();peerC();
+  head();drawChart();ai(A);drvC();horC(A);posC();ver(A);lev(A);whyC(A);techC();ideaC();sighC();info();ratC();peerC();
 }
 
 /* ---------- buy / sell record sheet + watchlist pick sheet ---------- */
@@ -1029,6 +1119,8 @@ document.addEventListener("click",e=>{
   else if(a==="open"||a==="peer"||a==="wopen"){if(a==="wopen"&&e.target.closest(".x"))return;openStock({id:d.id,name:d.name});}
   else if(a==="mv"){mvKind=d.m;document.querySelectorAll("#mvseg button").forEach(b=>b.classList.toggle("on",b.dataset.m===mvKind));if(EX)drawEx();}
   else if(a==="exsub")exSubSet(d.k);
+  else if(a==="idt"){idT=d.k;drawIdeas();}
+  else if(a==="idcap"){idCap=d.k;drawIdeas();}
   else if(a==="secr"){secR=d.r;drawSectors();}
   else if(a==="secopen")openSector(d.s);
   else if(a==="secback"){secName=null;secData=null;loadSectors();}

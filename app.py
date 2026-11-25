@@ -17,7 +17,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from backtest import run as bt_run, stats as bt_stats
 from patterns import analyse as pt_analyse, best as pt_best
-from technical import analyse
+from technical import analyse, ema
+import signals as sig
 from sectors import SECTOR_LIST, SECTOR_OF, stocks_of
 from universe import CAP, SECTORS, UNIVERSE
 
@@ -892,6 +893,82 @@ def api_mktnews():
         return reply(cached("mktnews", 600, build))
     except Exception:
         return err("News nahi mili, thodi der baad try karo.", 502)
+
+
+# ---------------------------------------------------------------- trade signals (BUY / SELL tags) + Trade Ideas feed
+@app.route("/api/signals")
+def api_signals():
+    """Ek stock ka: chart ke liye BUY/SELL points, track record aur aaj ka Trade Idea."""
+    sym = request.args.get("symbol", "").strip().upper()
+    if not sym:
+        return err("Symbol do.")
+
+    def build():
+        h = yf.Ticker(sym).history(period="2y", interval="1d", auto_adjust=False)
+        if h is None or h.empty:
+            return None
+        bars = to_bars(h.dropna(subset=["Close"]), market_open())
+        if len(bars) < 100:
+            return None
+        trs = sig.trades(bars)
+        slim = [{k: t[k] for k in ("bd", "bp", "sd", "sp", "sw", "ret", "days", "open", "sl", "t1", "t2", "score", "why")} for t in trs]
+        return {"trades": slim, "stats": sig.stats(trs, bars), "idea": sig.idea(bars, trs), "n": len(bars)}
+    try:
+        d = cached("sg:" + sym, 600, build)
+    except Exception:
+        return err("Signal nahi nikal paaye, thodi der baad try karo.", 502)
+    if not d:
+        return err("Signal ke liye kam se kam 100 din ka data chahiye.", 404)
+    return reply(d)
+
+
+def _idea_item(s, df, bars, T, typ):
+    c = df["Close"].dropna()
+    price = float(c.iloc[-1])
+    prev = float(c.iloc[-2]) if len(c) > 1 else price
+    cl = [b["c"] for b in bars]
+    why = sig._why(bars, len(bars) - 1, T) if typ == "BUY" else ["Price 20 din ke closing low ke neeche gaya", "Price 50 EMA ke neeche: trend kamzor"]
+    entry = T["entry"]
+    sl, t1, t2 = T["sl"], T["t1"], T["t2"]
+    if typ == "SELL":  # girawat wale idea: stop = upar ka level, target = neeche
+        risk = abs(sl - entry)
+        t1, t2 = max(entry * .5, entry - 1.5 * risk), max(entry * .4, entry - 2.5 * risk)
+    return {"id": s, "name": s.rsplit(".", 1)[0], "cap": CAP.get(s, "").capitalize(), "sector": SECTOR_OF.get(s, ""), "type": typ,
+            "price": price, "chg": (price / prev - 1) * 100 if prev else 0.0, "entry": entry, "sl": sl, "t1": t1, "t2": t2,
+            "up1": (t1 / price - 1) * 100, "up2": (t2 / price - 1) * 100, "risk": abs(price / sl - 1) * 100,
+            "rr": abs(t1 - entry) / max(abs(entry - sl), 1e-9), "score": T["score"], "label": T["label"], "why": why[:4]}
+
+
+@app.route("/api/ideas")
+def api_ideas():
+    """Aaj ke Trade Ideas: BUY (fresh breakout + volume) aur SELL / EXIT (breakdown + kamzor trend)."""
+    def build():
+        fr = cached("scan:all", 300, lambda: frames(UNIVERSE, "6mo"))
+        open_ = market_open()
+        buys, sells = [], []
+        for s, df in fr.items():
+            try:
+                c = df["Close"].dropna()
+                price = float(c.iloc[-1])
+                if float(df["Volume"].fillna(0).tail(20).mean()) * price / 1e7 < 1.0:
+                    continue
+                bars = to_bars(df, open_)
+                T = analyse(bars)
+                if not T:
+                    continue
+                if T["state"] == "brk" and T["score"] >= 60 and (T["volX"] or 0) >= 1.2 and T["t1"] > price * 1.02:
+                    buys.append(_idea_item(s, df, bars, T, "BUY"))
+                elif T["state"] == "bd" and price < ema([b["c"] for b in bars], 50)[-1]:
+                    sells.append(_idea_item(s, df, bars, T, "SELL"))
+            except Exception:
+                continue
+        buys.sort(key=lambda r: -r["score"])
+        sells.sort(key=lambda r: r["chg"])
+        return {"buy": buys[:40], "sell": sells[:30], "checked": len(fr), "asOf": ist_now().strftime("%Y-%m-%d %H:%M"), "open": open_}
+    try:
+        return reply(cached("ideas", 300, build))
+    except Exception:
+        return err("Trade ideas nahi ban paaye, thodi der baad try karo.", 502)
 
 
 @app.route("/api/backtest")

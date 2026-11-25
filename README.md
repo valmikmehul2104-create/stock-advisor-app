@@ -1,3 +1,20 @@
+# v8: Trade Ideas (BUY / SELL signal) - chart par tag, Trade Idea card, Ideas feed
+
+**Naya kya hai:**
+- **Chart par BUY / SELL tag:** stock ke 6 mahine ke chart par jahan rule se BUY ya SELL banta tha wahan hara BUY aur lal SELL tag lagta hai.
+- **Trade Idea card (chart ke neeche):** BUY / SELL / WAIT, "Potential upside ahead" (Target 1 aur 2 tak kitna %), Entry, Stop-loss, Target 1, Target 2, aur kyun (breakout, volume, trend).
+- **Signal history (Technicals tab):** pichhle 2 saal ke har BUY-SELL ka result (kitne jeete, average, sab jod ke vs sirf kharid ke rakhna). Haare hue trade bhi dikhte hain.
+- **Explore > Ideas:** aaj ke **BUY ideas** (naya breakout + zyada volume) aur **SELL / Exit ideas** (breakdown + kamzor trend), Large/Mid/Small cap filter ke saath. Card par tap karo to stock ka poora chart aur analysis khulta hai.
+
+**Rule:** BUY = purane resistance ke upar close + volume average se zyada + score 60+. SELL = stop-loss, Target 2, Target 1 ke baad price 20 EMA ke neeche band, ya 40 din ka time exit.
+
+**Update kaise karein:** GitHub repo me **Add file > Upload files** se `app.py`, `index.html` aur **naya** `signals.py` (same naam se) upload karke Commit karo. Render 2-3 minute me khud update kar dega.
+
+**Zaroori:** Ye rule-based signal hai, **SEBI-registered research analyst ki salah nahi**. Apne personal use ke liye theek hai. Agar aap ye BUY/SELL ideas doosron ko dena ya paise lekar dena chahte ho to India me SEBI Research Analyst registration chahiye.
+Chart ke tag pichhle data par rule chalane ka nateeja hain (backtest), isliye asli signal itne perfect nahi hote: galat signal bhi aate hain, aur slippage, charges, tax alag lagte hain.
+
+---
+
 # v7: Sector-wise teji/mandi heatmap + Latest market news
 
 **Naya kya hai (Explore screen me, search ke neeche 3 tab: Market | Sectors | News):**
